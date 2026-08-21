@@ -32,7 +32,7 @@ export async function handlePickerComponent(
   }
 
   const row = await getOpenPending(env.DB, parsed.token, now);
-  if (!row) return updateMessage(notice('This draft expired — run `/expense add` again.'));
+  if (!row) return updateMessage(notice('This draft expired — run `/add` again.'));
   if (row.invoker_id !== invoker.id) return ephemeralNotice('This draft belongs to someone else.');
   const payload = JSON.parse(row.payload) as PendingPayload;
   const currency = await ledgerCurrency(env, row.ledger_id);

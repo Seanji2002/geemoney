@@ -100,7 +100,7 @@ describe('request handling', () => {
 
 describe('/expense add', () => {
   it('responds to the slash command with the 5-component modal', async () => {
-    const res = await send(slash('expense', { sub: 'add', user: ALICE }));
+    const res = await send(slash('add', {user: ALICE }));
     expect(res.body.type).toBe(9);
     expect(res.body.data.custom_id).toBe('mod:add');
     const components = res.body.data.components;
@@ -314,9 +314,7 @@ describe('/expense add via slots', () => {
 
   it('records an equal split straight from the slots', async () => {
     const res = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'Sushi' },
           { type: 3, name: 'with', value: withMentions },
@@ -338,9 +336,7 @@ describe('/expense add via slots', () => {
 
   it('supports exact splits with values in @mention order, and paid_by', async () => {
     const res = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '31.20' },
           { type: 3, name: 'description', value: 'Pizza' },
           { type: 3, name: 'with', value: withMentions },
@@ -363,9 +359,7 @@ describe('/expense add via slots', () => {
   it('the payer is auto-included when not @mentioned; payer_shares: False opts out', async () => {
     // Alice pays, mentions only Bob and Cara → 3-way split.
     await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'Brunch' },
           { type: 3, name: 'with', value: `<@${BOB.id}> <@${CARA.id}>` },
@@ -380,9 +374,7 @@ describe('/expense add via slots', () => {
 
     // payer_shares: False → Alice fronted the money but isn't splitting.
     await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '20.00' },
           { type: 3, name: 'description', value: 'Their treat' },
           { type: 3, name: 'with', value: `<@${BOB.id}> <@${CARA.id}>` },
@@ -400,9 +392,7 @@ describe('/expense add via slots', () => {
 
     // Contradiction: payer_shares False but payer mentioned in with.
     const contradiction = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '10.00' },
           { type: 3, name: 'description', value: 'x' },
           { type: 3, name: 'with', value: `<@${ALICE.id}> <@${BOB.id}>` },
@@ -417,9 +407,7 @@ describe('/expense add via slots', () => {
   it('non-equal slot splits count the auto-added payer and hint about it', async () => {
     // Two mentions + auto-added payer = 3 values needed; giving 2 must say so.
     const wrong = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'x' },
           { type: 3, name: 'with', value: `<@${BOB.id}> <@${CARA.id}>` },
@@ -432,9 +420,7 @@ describe('/expense add via slots', () => {
     expect(textIn(wrong.body.data.components)).toContain('whoever paid counts too');
 
     const right = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'Ordered treat' },
           { type: 3, name: 'with', value: `<@${BOB.id}> <@${CARA.id}>` },
@@ -455,9 +441,7 @@ describe('/expense add via slots', () => {
   it('1:1 DM shorthand: no `with` means the partner owes the full amount', async () => {
     const dm = { channelId: 'dm-alice-bob', channel: { type: 1, recipients: [ALICE, BOB] } };
     const res = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '20.00' },
           { type: 3, name: 'description', value: 'Movie ticket' },
         ],
@@ -477,9 +461,7 @@ describe('/expense add via slots', () => {
 
     // payer_shares: True flips the shorthand into a 2-way split.
     await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '20.00' },
           { type: 3, name: 'description', value: 'Lunch' },
           { type: 5, name: 'payer_shares', value: true },
@@ -498,9 +480,7 @@ describe('/expense add via slots', () => {
     const dm = { channelId: 'dm-alice-cara', channel: { type: 1 } };
     // Nothing recorded yet and no recipients → must ask for `with` once.
     const first = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '5.00' },
           { type: 3, name: 'description', value: 'Coffee' },
         ],
@@ -512,9 +492,7 @@ describe('/expense add via slots', () => {
 
     // Record one expense with an explicit mention; after that the shorthand works.
     await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '5.00' },
           { type: 3, name: 'description', value: 'Coffee' },
           { type: 3, name: 'with', value: `<@${CARA.id}>` },
@@ -524,9 +502,7 @@ describe('/expense add via slots', () => {
       }),
     );
     const second = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '7.00' },
           { type: 3, name: 'description', value: 'Bagel' },
         ],
@@ -542,9 +518,7 @@ describe('/expense add via slots', () => {
 
   it('a 0 value lets the payer cover everyone (no share row, no DB CHECK crash)', async () => {
     const res = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'On me' },
           { type: 3, name: 'with', value: `<@${BOB.id}> <@${CARA.id}>` },
@@ -567,9 +541,7 @@ describe('/expense add via slots', () => {
 
   it('partial slots are refused with guidance; non-equal without values too', async () => {
     const partial = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [{ type: 3, name: 'amount', value: '30.00' }],
+      slash('add', {options: [{ type: 3, name: 'amount', value: '30.00' }],
         user: ALICE,
       }),
     );
@@ -577,9 +549,7 @@ describe('/expense add via slots', () => {
     expect(textIn(partial.body.data.components)).not.toContain('`with`');
 
     const noValues = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'x' },
           { type: 3, name: 'with', value: withMentions },
@@ -594,9 +564,7 @@ describe('/expense add via slots', () => {
 
   it('a with-string without mentions is refused; empty slots still open the form', async () => {
     const noMentions = await send(
-      slash('expense', {
-        sub: 'add',
-        options: [
+      slash('add', {options: [
           { type: 3, name: 'amount', value: '30.00' },
           { type: 3, name: 'description', value: 'x' },
           { type: 3, name: 'with', value: 'alice and bob' },
@@ -606,16 +574,14 @@ describe('/expense add via slots', () => {
     );
     expect(textIn(noMentions.body.data.components)).toContain('@mention');
 
-    const empty = await send(slash('expense', { sub: 'add', user: ALICE }));
+    const empty = await send(slash('add', {user: ALICE }));
     expect(empty.body.type).toBe(9);
   });
 });
 
 describe('/expense add picker (roster)', () => {
   const twoSlots = (user = ALICE, extra: { name: string; type: number; value: unknown }[] = []) =>
-    slash('expense', {
-      sub: 'add',
-      options: [
+    slash('add', {options: [
         { type: 3, name: 'amount', value: '30.00' },
         { type: 3, name: 'description', value: 'Ramen' },
         ...extra,
@@ -1084,8 +1050,7 @@ describe('/expense delete', () => {
     const id = await recordDinner();
 
     const confirm = await send(
-      slash('expense', {
-        sub: 'delete',
+      slash('delete', {
         options: [{ type: 3, name: 'id', value: String(id) }],
         user: BOB,
       }),
@@ -1246,12 +1211,12 @@ describe('/balance and /history', () => {
     expect(text).toContain('Dinner');
     expect(text).toContain('page 1/1');
 
-    const auto = await send(autocompleteFor('expense', 'edit', 'Din', { user: BOB }));
+    const auto = await send(autocompleteFor('delete', '', 'Din', { user: BOB }));
     expect(auto.body.type).toBe(8);
     expect(auto.body.data.choices[0].name).toContain('Dinner');
     expect(auto.body.data.choices[0].value).toBe(String(id));
 
-    const noMatch = await send(autocompleteFor('expense', 'edit', 'zzz', { user: BOB }));
+    const noMatch = await send(autocompleteFor('delete', '', 'zzz', { user: BOB }));
     expect(noMatch.body.data.choices).toHaveLength(0);
   });
 
@@ -1260,13 +1225,13 @@ describe('/balance and /history', () => {
     expect(res.body.type).toBe(4);
     expect(res.body.data.flags & EPHEMERAL).toBe(EPHEMERAL);
     const text = textIn(res.body.data.components);
-    expect(text).toContain('/expense add');
+    expect(text).toContain('/add');
     expect(text).toContain('Confirm');
   });
 
   it('mutating commands are rejected in the bot DM; reads resolve the single ledger', async () => {
     await recordDinner();
-    const addInDm = await send(slash('expense', { sub: 'add', user: ALICE, context: 1, channelId: 'dm1' }));
+    const addInDm = await send(slash('add', {user: ALICE, context: 1, channelId: 'dm1' }));
     expect(textIn(addInDm.body.data.components)).toContain('group chat');
 
     const balanceInDm = await send(slash('balance', { user: ALICE, context: 1, channelId: 'dm1' }));

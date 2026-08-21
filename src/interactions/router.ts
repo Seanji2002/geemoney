@@ -1,7 +1,7 @@
 import type { Env } from '../config';
 import type { Interaction } from '../discord/types';
 import { InteractionType } from '../discord/types';
-import { ephemeralNotice, optionValue, subcommandOf } from './common';
+import { ephemeralNotice, optionValue } from './common';
 import { parseCustomId } from './customId';
 import { handleAutocomplete } from './handlers/autocomplete';
 import { maybeShowGuide } from './handlers/hints';
@@ -10,7 +10,6 @@ import { handleDeleteButton, handleExpenseDelete } from './handlers/expenseDelet
 import {
   handleAddFromMessage,
   handleExpenseAdd,
-  handleExpenseEdit,
   handleExpenseFormSubmit,
   handlePendingButton,
   handleSplitModalSubmit,
@@ -47,15 +46,10 @@ export async function routeInteraction(
 async function routeCommand(i: Interaction, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (i.data?.type === 3 && i.data.name === 'Add as expense') return handleAddFromMessage(i, env);
   switch (i.data?.name) {
-    case 'expense': {
-      const sub = subcommandOf(i);
-      if (sub?.name === 'add') return handleExpenseAdd(i, env, ctx, sub.options);
-      if (sub?.name === 'edit') return handleExpenseEdit(i, env, String(optionValue(sub.options, 'id') ?? ''));
-      if (sub?.name === 'delete') return handleExpenseDelete(i, env, String(optionValue(sub.options, 'id') ?? ''));
-      return ephemeralNotice('Unknown subcommand.');
-    }
     case 'add':
       return handleExpenseAdd(i, env, ctx, i.data?.options ?? []);
+    case 'delete':
+      return handleExpenseDelete(i, env, String(optionValue(i.data?.options, 'id') ?? ''));
     case 'balance':
       return handleBalance(i, env);
     case 'settle':

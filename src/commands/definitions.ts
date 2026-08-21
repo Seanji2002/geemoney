@@ -70,45 +70,18 @@ const ADD_OPTIONS = [
 
 export const commandDefinitions = [
   {
-    name: 'expense',
+    name: 'delete',
     type: 1,
-    description: 'Add, edit, or delete a shared expense',
+    description: 'Delete an expense or settlement',
     integration_types: USER_INSTALL,
     contexts: SHARED_CHATS_ONLY,
     options: [
       {
-        type: 1,
-        name: 'add',
-        description: 'Record a shared expense (fill the slots, or leave them empty for a form)',
-        options: ADD_OPTIONS,
-      },
-      {
-        type: 1,
-        name: 'edit',
-        description: "Edit an expense in this chat's ledger",
-        options: [
-          {
-            type: 3,
-            name: 'id',
-            description: 'Which expense? Start typing a description or #id',
-            required: true,
-            autocomplete: true,
-          },
-        ],
-      },
-      {
-        type: 1,
-        name: 'delete',
-        description: 'Delete an expense or settlement',
-        options: [
-          {
-            type: 3,
-            name: 'id',
-            description: 'Which expense? Start typing a description or #id',
-            required: true,
-            autocomplete: true,
-          },
-        ],
+        type: 3,
+        name: 'id',
+        description: 'Which one? Start typing a description or #id',
+        required: true,
+        autocomplete: true,
       },
     ],
   },
@@ -172,7 +145,7 @@ export const commandDefinitions = [
   {
     name: 'add',
     type: 1,
-    description: 'Shortcut for /expense add',
+    description: 'Record a shared expense (fill the slots, or leave them empty for a form)',
     integration_types: USER_INSTALL,
     contexts: SHARED_CHATS_ONLY,
     options: ADD_OPTIONS,

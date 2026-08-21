@@ -44,7 +44,7 @@ export async function resolveReadLedger(
   const ledgers = await ledgersForUser(env.DB, invokerOf(i).id);
   if (ledgers.length === 1) return { ledgerId: ledgers[0]! };
   if (ledgers.length === 0) {
-    return { errorResponse: ephemeralNotice('No expenses involve you yet — start with `/expense add` in your group chat.') };
+    return { errorResponse: ephemeralNotice('No expenses involve you yet — start with `/add` in your group chat.') };
   }
   return {
     errorResponse: ephemeralNotice(

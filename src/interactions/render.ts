@@ -147,7 +147,7 @@ export function pickerView(d: PickerData): unknown[] {
 export function rosterView(members: string[], saved: boolean): string {
   const list = members.length === 0 ? 'Nobody yet.' : members.map(mention).join(' ');
   return `${saved ? '✅ Roster saved' : '👥  **This chat’s roster**'}\n${list}\n${
-    saved ? '' : 'This is who `/expense add` splits with when you don’t say otherwise. Change it below.'
+    saved ? '' : 'This is who `/add` splits with when you don’t say otherwise. Change it below.'
   }`.trim();
 }
 
@@ -215,7 +215,7 @@ export interface BalanceViewData {
 
 export function balanceView(b: BalanceViewData): unknown[] {
   if (b.nets.length === 0) {
-    return notice(`💰  **${b.title}**\nNo expenses recorded here yet — start with \`/expense add\`.`);
+    return notice(`💰  **${b.title}**\nNo expenses recorded here yet — start with \`/add\`.`);
   }
   const sorted = [...b.nets].sort((x, y) => y.cents - x.cents);
   const netLines = sorted

@@ -22,7 +22,7 @@ async function historyComponents(
         text(
           withUser
             ? `📜  No expenses involving ${mention(withUser)} yet.`
-            : '📜  Nothing here yet — start with `/expense add`.',
+            : '📜  Nothing here yet — start with `/add`.',
         ),
       ]),
     ];
