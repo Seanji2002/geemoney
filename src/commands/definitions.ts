@@ -38,7 +38,13 @@ export const commandDefinitions = [
           {
             type: 3,
             name: 'with',
-            description: 'Who shares the cost — @mention them, e.g. @alice @bob (whoever paid is included automatically)',
+            description: 'Who shares the cost — @mention them; leave empty to pick from this chat’s roster',
+            required: false,
+          },
+          {
+            type: 3,
+            name: 'except',
+            description: 'Leave these people out — @mention them, e.g. @cara',
             required: false,
           },
           {
@@ -159,6 +165,13 @@ export const commandDefinitions = [
         required: false,
       },
     ],
+  },
+  {
+    name: 'roster',
+    type: 1,
+    description: 'Who “everyone” means in this chat — view or change the people expenses default to',
+    integration_types: USER_INSTALL,
+    contexts: SHARED_CHATS_ONLY,
   },
   {
     name: 'help',

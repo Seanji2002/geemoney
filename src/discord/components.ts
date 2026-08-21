@@ -35,6 +35,30 @@ export function row(...buttons: unknown[]): unknown {
   return { type: ComponentType.ActionRow, components: buttons };
 }
 
+export interface MessageUserSelectSpec {
+  customId: string;
+  minValues: number;
+  maxValues: number;
+  placeholder?: string;
+  /** Pre-selected users — supported on message components (not modals). */
+  defaultUserIds?: string[];
+}
+
+/** A user-select menu for a message (wrap in row()). */
+export function messageUserSelect(spec: MessageUserSelectSpec): unknown {
+  const node: Record<string, unknown> = {
+    type: ComponentType.UserSelect,
+    custom_id: spec.customId,
+    min_values: spec.minValues,
+    max_values: spec.maxValues,
+  };
+  if (spec.placeholder) node.placeholder = spec.placeholder;
+  if (spec.defaultUserIds && spec.defaultUserIds.length > 0) {
+    node.default_values = spec.defaultUserIds.map((id) => ({ id, type: 'user' }));
+  }
+  return node;
+}
+
 // ---- Modal components ----
 
 /** Label(18) wraps every labeled modal input since the Aug 2025 modal rework. */

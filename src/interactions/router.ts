@@ -15,6 +15,8 @@ import {
 } from './handlers/expenseForm';
 import { handleHelp } from './handlers/help';
 import { handleHistory, handleHistoryButton } from './handlers/history';
+import { handlePickerComponent } from './handlers/picker';
+import { handleRoster, handleRosterSelect } from './handlers/roster';
 import { handleSettle, handleSettleButton } from './handlers/settle';
 
 export async function routeInteraction(
@@ -51,6 +53,8 @@ async function routeCommand(i: Interaction, env: Env, ctx: ExecutionContext): Pr
       return handleSettle(i, env);
     case 'history':
       return handleHistory(i, env);
+    case 'roster':
+      return handleRoster(i, env);
     case 'help':
       return handleHelp();
     default:
@@ -70,6 +74,10 @@ async function routeComponent(i: Interaction, env: Env, ctx: ExecutionContext): 
       return handleSettleButton(i, env, parsed);
     case 'history':
       return handleHistoryButton(i, env, parsed);
+    case 'pick':
+      return handlePickerComponent(i, env, ctx, parsed);
+    case 'roster':
+      return handleRosterSelect(i, env);
     default:
       return ephemeralNotice('This button is no longer supported.');
   }

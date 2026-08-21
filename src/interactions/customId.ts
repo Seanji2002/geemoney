@@ -9,7 +9,12 @@ export type ParsedCustomId =
   | { op: 'pending'; token: string; action: 'go' | 'm2' | 'x' | 'rt' }
   | { op: 'delete'; expenseId: number; confirm: boolean }
   | { op: 'settle'; expenseId: number; confirm: boolean }
-  | { op: 'history'; page: number; withUser: string | null };
+  | { op: 'history'; page: number; withUser: string | null }
+  | { op: 'pick'; token: string; action: PickAction }
+  | { op: 'roster' };
+
+export type PickAction = 'sel' | 'equal' | 'exact' | 'percent' | 'shares' | 'x';
+const PICK_ACTIONS: PickAction[] = ['sel', 'equal', 'exact', 'percent', 'shares', 'x'];
 
 function guard(id: string): string {
   if (id.length > 100) throw new Error(`custom_id too long: ${id}`);
@@ -28,6 +33,8 @@ export const customIds = {
   settle: (expenseId: number, confirm: boolean): string => guard(`stl:${expenseId}:${confirm ? 'y' : 'n'}`),
   history: (page: number, withUser: string | null): string =>
     guard(`hst:${page}:${withUser ?? '-'}`),
+  pick: (token: string, action: PickAction): string => guard(`pk:${token}:${action}`),
+  roster: (): string => 'ro:set',
 };
 
 export function parseCustomId(id: string): ParsedCustomId | null {
@@ -63,6 +70,15 @@ export function parseCustomId(id: string): ParsedCustomId | null {
       }
       return null;
     }
+    case 'pk': {
+      const [, token, action] = parts;
+      if (parts.length === 3 && token && PICK_ACTIONS.includes(action as PickAction)) {
+        return { op: 'pick', token, action: action as PickAction };
+      }
+      return null;
+    }
+    case 'ro':
+      return parts.length === 2 && parts[1] === 'set' ? { op: 'roster' } : null;
     case 'hst': {
       const page = Number(parts[1]);
       const withUser = parts[2];

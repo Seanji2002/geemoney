@@ -568,7 +568,7 @@ describe('/expense add via slots', () => {
       }),
     );
     expect(textIn(partial.body.data.components)).toContain('`description`');
-    expect(textIn(partial.body.data.components)).toContain('`with`');
+    expect(textIn(partial.body.data.components)).not.toContain('`with`');
 
     const noValues = await send(
       slash('expense', {
@@ -602,6 +602,123 @@ describe('/expense add via slots', () => {
 
     const empty = await send(slash('expense', { sub: 'add', user: ALICE }));
     expect(empty.body.type).toBe(9);
+  });
+});
+
+describe('/expense add picker (roster)', () => {
+  const twoSlots = (user = ALICE, extra: { name: string; type: number; value: unknown }[] = []) =>
+    slash('expense', {
+      sub: 'add',
+      options: [
+        { type: 3, name: 'amount', value: '30.00' },
+        { type: 3, name: 'description', value: 'Ramen' },
+        ...extra,
+      ],
+      user,
+    });
+
+  function selectIn(body: any): any {
+    const rows = body.data.components.filter((c: any) => c.type === 1);
+    return rows[0].components[0];
+  }
+
+  it('two slots open a picker pre-filled from the roster; one click records it', async () => {
+    await recordDinner(); // seeds the roster with Alice, Bob, Cara
+
+    const picker = await send(twoSlots());
+    expect(picker.body.type).toBe(4);
+    expect(picker.body.data.flags & EPHEMERAL).toBe(EPHEMERAL);
+    const select = selectIn(picker.body);
+    expect(select.type).toBe(5);
+    expect(select.default_values.map((d: any) => d.id).sort()).toEqual([ALICE.id, BOB.id, CARA.id].sort());
+    const ids = customIdsIn(picker.body.data.components);
+    const equalId = ids.find((c) => c.endsWith(':equal'))!;
+    expect(ids.filter((c) => c.startsWith('pk:'))).toHaveLength(6);
+
+    const done = await send(click(equalId, { user: ALICE }));
+    expect(done.body.type).toBe(7);
+    expect(textIn(done.body.data.components)).toContain('Recorded');
+    await done.settled;
+    expect(followUps).toHaveBeenCalledTimes(1);
+    const receipt = textIn(followUps.mock.calls[0]![2]);
+    expect(receipt).toContain('Ramen');
+    expect(receipt).toContain('Now:'); // balances footer
+
+    const rows = await expenseRows();
+    expect(rows).toHaveLength(2);
+    const shares = await shareRows(rows[1].id);
+    expect(shares).toHaveLength(3);
+    expect(shares.reduce((a: number, s: any) => a + s.owed_cents, 0)).toBe(3000);
+
+    // The draft is consumed: a second click can't double-record.
+    const again = await send(click(equalId, { user: ALICE }));
+    expect(textIn(again.body.data.components)).toContain('expired');
+    expect(await expenseRows()).toHaveLength(2);
+  });
+
+  it('`except` drops people from the pre-filled list; the select edits it; payer is auto-added', async () => {
+    await recordDinner();
+    const picker = await send(twoSlots(ALICE, [{ type: 3, name: 'except', value: `<@${CARA.id}>` }]));
+    const select = selectIn(picker.body);
+    expect(select.default_values.map((d: any) => d.id).sort()).toEqual([ALICE.id, BOB.id].sort());
+    const token = select.custom_id.split(':')[1]!;
+
+    // Deselect everyone but Bob; Alice (payer) still gets added automatically.
+    const changed = await send({
+      ...click(`pk:${token}:sel`, { user: ALICE, resolved: resolvedUsers(BOB) }),
+      data: { custom_id: `pk:${token}:sel`, component_type: 5, values: [BOB.id], resolved: resolvedUsers(BOB) },
+    });
+    expect(changed.body.type).toBe(7);
+    expect(textIn(changed.body.data.components)).toContain('as payer');
+
+    await send(click(`pk:${token}:equal`, { user: ALICE }));
+    const rows = await expenseRows();
+    const shares = await shareRows(rows[1].id);
+    expect(shares).toHaveLength(2);
+    expect(shares.find((s: any) => s.user_id === BOB.id)!.owed_cents).toBe(1500);
+    expect(shares.find((s: any) => s.user_id === ALICE.id)!.owed_cents).toBe(1500);
+  });
+
+  it('custom split from the picker goes through the values modal', async () => {
+    await recordDinner();
+    const picker = await send(twoSlots());
+    const token = selectIn(picker.body).custom_id.split(':')[1]!;
+    const modalRes = await send(click(`pk:${token}:exact`, { user: ALICE }));
+    expect(modalRes.body.type).toBe(9);
+    expect(modalRes.body.data.custom_id).toBe(`pnd:${token}:m2`);
+    expect(textIn(modalRes.body.data.components)).toContain('alice');
+
+    const done = await send(splitModalSubmit(`pnd:${token}:m2`, '15.00, 10.00, 5.00', { user: ALICE }));
+    expect(textIn(done.body.data.components)).toContain('Recorded');
+    const rows = await expenseRows();
+    const shares = await shareRows(rows[1].id);
+    expect(shares.reduce((a: number, s: any) => a + s.owed_cents, 0)).toBe(3000);
+  });
+
+  it('a fresh chat shows an empty picker with a hint, and refuses to record nobody', async () => {
+    const picker = await send(twoSlots());
+    expect(textIn(picker.body.data.components)).toContain('roster');
+    expect(selectIn(picker.body).default_values).toBeUndefined();
+    const token = selectIn(picker.body).custom_id.split(':')[1]!;
+    const nobody = await send(click(`pk:${token}:equal`, { user: ALICE }));
+    expect(textIn(nobody.body.data.components)).toContain('at least one other person');
+    expect(await expenseRows()).toHaveLength(0);
+  });
+
+  it('/roster shows and edits who "everyone" means', async () => {
+    await recordDinner();
+    const view = await send(slash('roster', { user: BOB }));
+    expect(view.body.data.flags & EPHEMERAL).toBe(EPHEMERAL);
+    expect(selectIn(view.body).default_values).toHaveLength(3);
+
+    const saved = await send({
+      ...click('ro:set', { user: BOB }),
+      data: { custom_id: 'ro:set', component_type: 5, values: [ALICE.id, BOB.id], resolved: resolvedUsers(ALICE, BOB) },
+    });
+    expect(textIn(saved.body.data.components)).toContain('Roster saved');
+
+    const picker = await send(twoSlots(BOB));
+    expect(selectIn(picker.body).default_values.map((d: any) => d.id).sort()).toEqual([ALICE.id, BOB.id].sort());
   });
 });
 

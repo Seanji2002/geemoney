@@ -16,9 +16,13 @@ import {
   insertExpense,
   insertExpenseViaPendingClaim,
   ledgerMembers,
+  liveShareRows,
   type ExpenseEdit,
   type ExpenseInsert,
 } from '../../db/expenses';
+import { addToRoster, getRoster } from '../../db/roster';
+import { computePairwise, settleSuggestions } from '../../domain/balance';
+import { groupByExpense } from './balance';
 import {
   cancelPending,
   createPending,
@@ -42,7 +46,7 @@ import {
 } from '../common';
 import { customIds, type ParsedCustomId } from '../customId';
 import { expenseModalComponents, splitModalComponents, splitModalTitle } from '../forms';
-import { notice, receiptView } from '../render';
+import { notice, pickerView, receiptView } from '../render';
 
 // ---- Slash commands ----
 
@@ -78,7 +82,6 @@ export async function handleExpenseAdd(
   const missing = [
     amountRaw === undefined ? '`amount`' : null,
     descriptionRaw === undefined ? '`description`' : null,
-    withRaw === undefined && !isOneOnOneDm ? '`with`' : null,
   ].filter(Boolean);
   if (missing.length > 0) {
     return ephemeralNotice(
@@ -98,11 +101,12 @@ export async function handleExpenseAdd(
     return ephemeralNotice('Bots can’t take part in an expense.');
   }
   const payerSharesOpt = optionValue(options, 'payer_shares');
+  const exceptIds = mentionIds(String(optionValue(options, 'except') ?? ''));
 
   let participantIds: string[];
   let payerAutoAdded = false;
 
-  if (withRaw === undefined) {
+  if (withRaw === undefined && isOneOnOneDm) {
     // 1:1 DM shorthand: the recorder paid, the DM partner owes it all.
     if (String(optionValue(options, 'split') ?? 'equal') !== 'equal') {
       return ephemeralNotice('Custom splits need the `with` slot — @mention the participants.');
@@ -118,10 +122,42 @@ export async function handleExpenseAdd(
     const owerId = payerId === otherId ? invoker.id : otherId;
     // payer_shares: True turns the IOU into a 2-way split.
     participantIds = payerSharesOpt === true ? [owerId, payerId] : [owerId];
+  } else if (withRaw === undefined) {
+    // Group chat without `with`: open the picker, pre-filled from the roster,
+    // so recording is "two slots + one click".
+    const roster = await getRoster(env.DB, ledgerId);
+    const defaults = roster.filter((m) => !exceptIds.includes(m.id) && m.id !== env.DISCORD_APP_ID);
+    const valuesOpt = optionValue(options, 'values');
+    const payload: PendingPayload = {
+      amountCents: amount.cents,
+      description,
+      method: String(optionValue(options, 'split') ?? 'equal'),
+      payerId,
+      participants: defaults.map((m) => ({ id: m.id, username: m.username })),
+      priorInput: valuesOpt === undefined ? undefined : String(valuesOpt),
+      payerShares: payerSharesOpt !== false,
+    };
+    const token = await createPending(env.DB, {
+      kind: 'expense_add',
+      ledgerId,
+      invokerId: invoker.id,
+      payload,
+      now: nowSeconds(),
+    });
+    return channelMessage(
+      pickerView({
+        token,
+        amountCents: amount.cents,
+        description,
+        currency: await ledgerCurrency(env, ledgerId),
+        payerId,
+        selected: defaults.map((m) => m.id),
+        rosterEmpty: roster.length === 0,
+      }),
+      { ephemeral: true },
+    );
   } else {
-    participantIds = [
-      ...new Set([...String(withRaw).matchAll(/<@!?(\d{17,20})>/g)].map((m) => m[1]!)),
-    ];
+    participantIds = mentionIds(String(withRaw)).filter((id) => !exceptIds.includes(id));
     if (participantIds.length === 0) {
       return ephemeralNotice('In `with`, @mention the people who share the cost (type @ and pick them).');
     }
@@ -220,7 +256,12 @@ export async function handleExpenseEdit(i: Interaction, env: Env, idRaw: string)
 
 // ---- The expense form modal submit (add and edit) ----
 
-interface ParsedForm {
+/** Parses `<@id>` / `<@!id>` mentions out of a free-text slot, deduplicated, in order. */
+function mentionIds(raw: string): string[] {
+  return [...new Set([...raw.matchAll(/<@!?(\d{17,20})>/g)].map((m) => m[1]!))];
+}
+
+export interface ParsedForm {
   amountCents: number;
   rawAmount: string;
   description: string;
@@ -481,7 +522,7 @@ interface AddArgs {
   via: { token: string } | null;
 }
 
-async function finalizeAdd(
+export async function finalizeAdd(
   i: Interaction,
   env: Env,
   ctx: ExecutionContext,
@@ -513,7 +554,10 @@ async function finalizeAdd(
     return updateMessage(notice('This draft was already used or expired — run `/expense add` again.'));
   }
 
+  const balancesNow = await balancesAfterWrite(env, args.ledgerId);
+  await seedRoster(env, i, args.ledgerId, args.form, args.splitInput, now);
   const receipt = receiptView({
+    balancesNow,
     id: outcome.expenseId,
     description: args.form.description,
     totalCents: args.form.amountCents,
@@ -578,7 +622,10 @@ async function finalizeEdit(
     return args.via ? updateMessage(notice(msg)) : ephemeralNotice(msg);
   }
 
+  const balancesNow = await balancesAfterWrite(env, ledgerIdOf(i));
+  await seedRoster(env, i, ledgerIdOf(i), args.form, args.splitInput, now);
   const receipt = receiptView({
+    balancesNow,
     id: args.record.id,
     description: args.form.description,
     totalCents: args.form.amountCents,
@@ -726,6 +773,32 @@ export async function handleSplitModalSubmit(
     timestamp: now,
     via: { token: parsed.token },
   });
+}
+
+/** Pairwise "who owes whom" after a write, for the receipt footer. */
+async function balancesAfterWrite(env: Env, ledgerId: string) {
+  const rows = await liveShareRows(env.DB, ledgerId);
+  return settleSuggestions(computePairwise(groupByExpense(rows)));
+}
+
+/** Every recorded expense teaches the chat's roster who "everyone" is. */
+async function seedRoster(
+  env: Env,
+  i: Interaction,
+  ledgerId: string,
+  form: ParsedForm,
+  splitInput: string | null,
+  now: number,
+): Promise<void> {
+  const stored = parseStoredSplitInput(splitInput)?.participants ?? [];
+  const names = new Map(stored.map((p) => [p.id, p.username]));
+  const ids = [...new Set([...form.participantIds, form.payerId])];
+  await addToRoster(
+    env.DB,
+    ledgerId,
+    ids.map((id) => ({ id, username: usernameOf(i, id, names.get(id)) })),
+    now,
+  );
 }
 
 async function savePriorInput(

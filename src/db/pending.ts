@@ -12,6 +12,8 @@ export interface PendingPayload {
   participants: { id: string; username: string }[];
   /** Raw values the user previously typed, for retry/edit prefill. */
   priorInput?: string;
+  /** false = the payer only fronted the money (picker flows). Default true. */
+  payerShares?: boolean;
 }
 
 export interface PendingRecord {
