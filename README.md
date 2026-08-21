@@ -21,6 +21,8 @@ Start with `/expense add`, then `/help` any time you need a reminder.
   Add `except: @cara` to leave someone out, or `with: @alice @bob` to name people yourself.
   Leave every slot empty for a pop-up form instead. Whoever paid is included automatically;
   set `paid_by` if it wasn't you.
+- **Add straight from a message** — someone typed “pizza 42.50”? Right-click / long-press it →
+  Apps → **Add as expense**. Amount, description, and payer are filled in; you just confirm.
 - **Every receipt shows the new balances** — no need to ask who owes whom after each expense.
 - **A roster per chat** — `/roster` sets who "everyone" means; it also learns from the
   expenses you record.

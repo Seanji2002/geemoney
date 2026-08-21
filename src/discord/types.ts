@@ -72,8 +72,15 @@ export interface APIUser {
   bot?: boolean;
 }
 
+export interface APIMessageLite {
+  id: string;
+  content: string;
+  author: APIUser;
+}
+
 export interface ResolvedData {
   users?: Record<string, APIUser>;
+  messages?: Record<string, APIMessageLite>;
 }
 
 export interface CommandOptionValue {
@@ -86,9 +93,12 @@ export interface CommandOptionValue {
 
 export interface CommandData {
   name: string;
+  /** 1 = slash command, 2 = user context menu, 3 = message context menu. */
   type: number;
   options?: CommandOptionValue[];
   resolved?: ResolvedData;
+  /** Target message/user id for context-menu commands. */
+  target_id?: string;
 }
 
 export interface ComponentData {

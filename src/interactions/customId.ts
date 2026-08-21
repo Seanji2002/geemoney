@@ -15,8 +15,8 @@ export type ParsedCustomId =
   | { op: 'settleButton'; fromId: string; toId: string; cents: number }
   | { op: 'receipt'; expenseId: number; action: 'edit' | 'undo' };
 
-export type PickAction = 'sel' | 'equal' | 'exact' | 'percent' | 'shares' | 'x';
-const PICK_ACTIONS: PickAction[] = ['sel', 'equal', 'exact', 'percent', 'shares', 'x'];
+export type PickAction = 'sel' | 'payer' | 'equal' | 'exact' | 'percent' | 'shares' | 'x';
+const PICK_ACTIONS: PickAction[] = ['sel', 'payer', 'equal', 'exact', 'percent', 'shares', 'x'];
 
 function guard(id: string): string {
   if (id.length > 100) throw new Error(`custom_id too long: ${id}`);

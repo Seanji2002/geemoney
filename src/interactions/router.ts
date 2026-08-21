@@ -8,6 +8,7 @@ import { maybeShowGuide } from './handlers/hints';
 import { handleBalance } from './handlers/balance';
 import { handleDeleteButton, handleExpenseDelete } from './handlers/expenseDelete';
 import {
+  handleAddFromMessage,
   handleExpenseAdd,
   handleExpenseEdit,
   handleExpenseFormSubmit,
@@ -44,6 +45,7 @@ export async function routeInteraction(
 }
 
 async function routeCommand(i: Interaction, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (i.data?.type === 3 && i.data.name === 'Add as expense') return handleAddFromMessage(i, env);
   switch (i.data?.name) {
     case 'expense': {
       const sub = subcommandOf(i);

@@ -126,6 +126,15 @@ export function pickerView(d: PickerData): unknown[] {
       }),
     ),
     row(
+      messageUserSelect({
+        customId: customIds.pick(d.token, 'payer'),
+        minValues: 1,
+        maxValues: 1,
+        placeholder: 'Who paid?',
+        defaultUserIds: [d.payerId],
+      }),
+    ),
+    row(
       button({ customId: customIds.pick(d.token, 'equal'), label: 'Split equally', style: ButtonStyle.Primary }),
       button({ customId: customIds.pick(d.token, 'exact'), label: 'Exact amounts' }),
       button({ customId: customIds.pick(d.token, 'percent'), label: 'Percentages' }),

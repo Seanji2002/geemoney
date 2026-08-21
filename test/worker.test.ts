@@ -639,7 +639,7 @@ describe('/expense add picker (roster)', () => {
     expect(select.default_values.map((d: any) => d.id).sort()).toEqual([ALICE.id, BOB.id, CARA.id].sort());
     const ids = customIdsIn(picker.body.data.components);
     const equalId = ids.find((c) => c.endsWith(':equal'))!;
-    expect(ids.filter((c) => c.startsWith('pk:'))).toHaveLength(6);
+    expect(ids.filter((c) => c.startsWith('pk:'))).toHaveLength(7);
 
     const done = await send(click(equalId, { user: ALICE }));
     expect(done.body.type).toBe(7);
@@ -888,6 +888,52 @@ describe('hints', () => {
       data: { name: 'add', type: 1, options: [{ type: 3, name: 'description', value: 'dinner', focused: true }] },
     });
     expect(exact.body.data.choices.map((c: any) => c.name)).toEqual(['Dinner']);
+  });
+});
+
+describe('Add as expense (message command)', () => {
+  const messageCommand = (content: string, author: { id: string; username: string; bot?: boolean }, user = BOB) => ({
+    ...slash('Add as expense', { user }),
+    data: {
+      name: 'Add as expense',
+      type: 3,
+      target_id: 'm1',
+      resolved: { messages: { m1: { id: 'm1', content, author: { ...author, bot: author.bot ?? false } } } },
+    },
+  });
+
+  it('parses the message and opens the picker with the author as payer', async () => {
+    await recordDinner();
+    const res = await send(messageCommand('pizza 42.50', ALICE, BOB));
+    expect(res.body.type).toBe(4);
+    expect(res.body.data.flags & EPHEMERAL).toBe(EPHEMERAL);
+    const body = textIn(res.body.data.components);
+    expect(body).toContain('$42.50');
+    expect(body).toContain('pizza');
+    expect(body).toContain(`paid by <@${ALICE.id}>`);
+
+    // The payer select can reassign who paid; then one click records it.
+    const ids = customIdsIn(res.body.data.components);
+    const token = ids.find((c) => c.startsWith('pk:'))!.split(':')[1]!;
+    const repaid = await send({
+      ...click(`pk:${token}:payer`, { user: BOB, resolved: resolvedUsers(CARA) }),
+      data: { custom_id: `pk:${token}:payer`, component_type: 5, values: [CARA.id], resolved: resolvedUsers(CARA) },
+    });
+    expect(textIn(repaid.body.data.components)).toContain(`paid by <@${CARA.id}>`);
+    await send(click(`pk:${token}:equal`, { user: BOB }));
+    const rows = await expenseRows();
+    const shares = await shareRows(rows[1].id);
+    expect(shares.find((s: any) => s.user_id === CARA.id)!.paid_cents).toBe(4250);
+    expect(rows[1].description).toBe('pizza');
+  });
+
+  it('falls back to the invoker as payer for bot-authored messages, and refuses amount-less text', async () => {
+    const bot = { id: '100000000000000009', username: 'beepboop', bot: true };
+    const res = await send(messageCommand('tab is 20', bot, BOB));
+    expect(textIn(res.body.data.components)).toContain(`paid by <@${BOB.id}>`);
+
+    const none = await send(messageCommand('who wants pizza?', ALICE, BOB));
+    expect(textIn(none.body.data.components)).toContain("couldn't find an amount");
   });
 });
 
