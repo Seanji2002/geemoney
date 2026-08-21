@@ -3,7 +3,8 @@ import type { Interaction } from '../discord/types';
 import { InteractionType } from '../discord/types';
 import { ephemeralNotice, optionValue, subcommandOf } from './common';
 import { parseCustomId } from './customId';
-import { handleExpenseAutocomplete } from './handlers/autocomplete';
+import { handleAutocomplete } from './handlers/autocomplete';
+import { maybeShowGuide } from './handlers/hints';
 import { handleBalance } from './handlers/balance';
 import { handleDeleteButton, handleExpenseDelete } from './handlers/expenseDelete';
 import {
@@ -26,10 +27,13 @@ export async function routeInteraction(
   ctx: ExecutionContext,
 ): Promise<Response> {
   switch (i.type) {
-    case InteractionType.ApplicationCommand:
-      return routeCommand(i, env, ctx);
+    case InteractionType.ApplicationCommand: {
+      const response = await routeCommand(i, env, ctx);
+      ctx.waitUntil(maybeShowGuide(i, env));
+      return response;
+    }
     case InteractionType.ApplicationCommandAutocomplete:
-      return handleExpenseAutocomplete(i, env);
+      return handleAutocomplete(i, env);
     case InteractionType.MessageComponent:
       return routeComponent(i, env, ctx);
     case InteractionType.ModalSubmit:

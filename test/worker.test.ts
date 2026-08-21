@@ -31,6 +31,11 @@ beforeEach(() => {
   followUps.mockClear();
 });
 
+/** Public (non-ephemeral) follow-up bodies — receipts and notices, not hints. */
+function publicFollowUps(): unknown[] {
+  return followUps.mock.calls.filter((c) => ((c[2] as any).flags & EPHEMERAL) === 0).map((c) => c[2]);
+}
+
 async function expenseRows() {
   const { results } = await env.DB.prepare('SELECT * FROM expenses ORDER BY id').all();
   return results as any[];
@@ -210,8 +215,8 @@ describe('/expense add', () => {
     expect(good.body.type).toBe(7);
     expect(textIn(good.body.data.components)).toContain('Recorded');
     await good.settled;
-    expect(followUps).toHaveBeenCalledTimes(1);
-    expect(textIn(followUps.mock.calls[0]![2])).toContain('Pizza night');
+    expect(publicFollowUps()).toHaveLength(1);
+    expect(textIn(publicFollowUps()[0])).toContain('Pizza night');
 
     const [expense] = await expenseRows();
     expect(expense.total_cents).toBe(3120);
@@ -640,8 +645,8 @@ describe('/expense add picker (roster)', () => {
     expect(done.body.type).toBe(7);
     expect(textIn(done.body.data.components)).toContain('Recorded');
     await done.settled;
-    expect(followUps).toHaveBeenCalledTimes(1);
-    const receipt = textIn(followUps.mock.calls[0]![2]);
+    expect(publicFollowUps()).toHaveLength(1);
+    const receipt = textIn(publicFollowUps()[0]);
     expect(receipt).toContain('Ramen');
     expect(receipt).toContain('Now:'); // balances footer
 
@@ -821,6 +826,71 @@ describe('buttons over commands', () => {
   });
 });
 
+describe('hints', () => {
+  const ephemeralFollowUps = () =>
+    followUps.mock.calls.filter((c) => ((c[2] as any).flags & EPHEMERAL) !== 0).map((c) => textIn(c[2]));
+
+  it('shows the tour once per person per chat, as an ephemeral follow-up', async () => {
+    const first = await send(slash('balance', { user: ALICE }));
+    await first.settled;
+    expect(ephemeralFollowUps().some((t) => t.includes('First time here'))).toBe(true);
+
+    followUps.mockClear();
+    const second = await send(slash('history', { user: ALICE }));
+    await second.settled;
+    expect(ephemeralFollowUps().some((t) => t.includes('First time here'))).toBe(false);
+
+    // A different person in the same chat gets their own tour.
+    const bob = await send(slash('balance', { user: BOB }));
+    await bob.settled;
+    expect(ephemeralFollowUps().some((t) => t.includes('First time here'))).toBe(true);
+
+    // The bot's own DM never gets it.
+    followUps.mockClear();
+    const dm = await send(slash('balance', { user: CARA, context: 1, channelId: 'dm-x' }));
+    await dm.settled;
+    expect(ephemeralFollowUps()).toHaveLength(0);
+  });
+
+  it('shows three rotating tips after recording, then stops', async () => {
+    const add = () =>
+      expenseModalSubmit(
+        'mod:add',
+        { amount: '10.00', desc: 'Snack', participants: [ALICE.id, BOB.id], method: 'equal' },
+        { user: ALICE, resolved: resolvedUsers(ALICE, BOB) },
+      );
+    const seen: string[] = [];
+    for (let n = 0; n < 4; n++) {
+      followUps.mockClear();
+      const res = await send(add());
+      await res.settled;
+      seen.push(...ephemeralFollowUps().filter((t) => t.includes('Tip:')));
+    }
+    expect(seen).toHaveLength(3);
+    expect(new Set(seen).size).toBe(3);
+  });
+
+  it('description autocomplete offers recent descriptions plus the typed text', async () => {
+    await recordDinner();
+    const res = await send({
+      ...slash('add', { user: BOB }),
+      type: 4,
+      data: { name: 'add', type: 1, options: [{ type: 3, name: 'description', value: 'Din', focused: true }] },
+    });
+    expect(res.body.type).toBe(8);
+    const names = res.body.data.choices.map((c: any) => c.name);
+    expect(names[0]).toBe('Din');
+    expect(names).toContain('Dinner');
+
+    const exact = await send({
+      ...slash('add', { user: BOB }),
+      type: 4,
+      data: { name: 'add', type: 1, options: [{ type: 3, name: 'description', value: 'dinner', focused: true }] },
+    });
+    expect(exact.body.data.choices.map((c: any) => c.name)).toEqual(['Dinner']);
+  });
+});
+
 describe('/expense edit', () => {
   it('edits with optimistic locking; the stale editor loses cleanly', async () => {
     const id = await recordDinner();
@@ -877,7 +947,7 @@ describe('/expense edit', () => {
     expect(done.body.type).toBe(7);
     expect(textIn(done.body.data.components)).toContain('Updated');
     await done.settled;
-    expect(followUps).toHaveBeenCalledTimes(1);
+    expect(publicFollowUps()).toHaveLength(1);
 
     const rows = await expenseRows();
     expect(rows[0].split_method).toBe('exact');
@@ -981,8 +1051,8 @@ describe('/expense delete', () => {
     expect(deleted.body.type).toBe(7);
     expect(textIn(deleted.body.data.components)).toContain('Deleted');
     await deleted.settled;
-    expect(followUps).toHaveBeenCalledTimes(1);
-    expect(textIn(followUps.mock.calls[0]![2])).toContain('deleted');
+    expect(publicFollowUps()).toHaveLength(1);
+    expect(textIn(publicFollowUps()[0])).toContain('deleted');
 
     const rows = await expenseRows();
     expect(rows[0].deleted_at).not.toBeNull();

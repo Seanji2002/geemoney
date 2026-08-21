@@ -55,10 +55,13 @@ export async function send(interaction: unknown): Promise<SentInteraction> {
   const ctx = createExecutionContext();
   const res = await worker.fetch(req, { ...env, DISCORD_PUBLIC_KEY: publicKeyHex }, ctx);
   const text = await res.text();
+  // Drain waitUntil work (follow-ups, hints) before returning so nothing
+  // touches the database after the next test's reset().
+  await waitOnExecutionContext(ctx);
   return {
     status: res.status,
     body: text ? JSON.parse(text) : null,
-    settled: waitOnExecutionContext(ctx),
+    settled: Promise.resolve(),
   };
 }
 
