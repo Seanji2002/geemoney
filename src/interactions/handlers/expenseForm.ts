@@ -53,7 +53,7 @@ import { parseExpenseText } from '../../domain/parseText';
 // ---- Slash commands ----
 
 /**
- * /expense add works two ways: fill the slots (amount + description + with)
+ * /add works two ways: fill the slots (amount + description + with)
  * to record straight from the chat bar, or leave them all empty to get the
  * full form. Slot mode identifies participants by parsing @mentions out of
  * the `with` string — their order is the order for `values`.
@@ -210,23 +210,13 @@ export async function handleExpenseAdd(
   });
 }
 
-export async function handleExpenseEdit(i: Interaction, env: Env, idRaw: string): Promise<Response> {
-  const guard = rejectBotDm(i);
-  if (guard) return guard;
-  const expenseId = Number(idRaw);
-  if (!Number.isInteger(expenseId) || expenseId < 1) {
-    return ephemeralNotice('Pick an expense from the suggestions.');
-  }
-  return openEditModal(i, env, expenseId);
-}
-
-/** The prefilled edit modal — reached from /expense edit or a receipt's Edit button. */
+/** The prefilled edit modal — reached from Edit (on the receipt) or a receipt's Edit button. */
 export async function openEditModal(i: Interaction, env: Env, expenseId: number): Promise<Response> {
   const record = await getExpense(env.DB, expenseId);
   if (!record || record.deleted_at !== null) return ephemeralNotice('That expense no longer exists.');
   if (record.ledger_id !== ledgerIdOf(i)) return ephemeralNotice('That expense belongs to a different chat.');
   if (record.is_payment) {
-    return ephemeralNotice('Settlements can’t be edited — delete it with `/expense delete` and settle again.');
+    return ephemeralNotice('Settlements can’t be edited — delete it with `/delete` and settle again.');
   }
   return modal(
     customIds.modEdit(record.id, record.revision),
@@ -365,7 +355,7 @@ function parseExpenseForm(
 
   participantIds = [...new Set(participantIds)];
   // Whoever paid shares the cost — auto-included when picking fresh.
-  // (The "paid but not splitting" case is the payer_shares slot on /expense add.)
+  // (The "paid but not splitting" case is the payer_shares slot on /add.)
   if (fromSelect && !participantIds.includes(payerId)) participantIds.push(payerId);
   if (participantIds.length < 1 || participantIds.length > MAX_PARTICIPANTS) {
     return fail(`Pick between 1 and ${MAX_PARTICIPANTS} people (the payer counts too).`);
@@ -605,7 +595,7 @@ export async function finalizeAdd(
     return args.via ? updateMessage(notice('Already recorded.')) : ephemeralNotice('Already recorded.');
   }
   if (outcome.status === 'not_claimed') {
-    return updateMessage(notice('This draft was already used or expired — run `/expense add` again.'));
+    return updateMessage(notice('This draft was already used or expired — run `/add` again.'));
   }
 
   const balancesNow = await balancesAfterWrite(env, args.ledgerId);
@@ -670,10 +660,10 @@ async function finalizeEdit(
     : await editExpense(env.DB, edit);
 
   if (outcome === 'not_claimed') {
-    return updateMessage(notice('This draft was already used or expired — run `/expense edit` again.'));
+    return updateMessage(notice('This draft was already used or expired — tap Edit on the receipt again.'));
   }
   if (outcome === 'conflict') {
-    const msg = 'This expense changed since you opened the editor — run `/expense edit` again.';
+    const msg = 'This expense changed since you opened the editor — tap Edit on the receipt again.';
     return args.via ? updateMessage(notice(msg)) : ephemeralNotice(msg);
   }
 
@@ -717,7 +707,7 @@ export async function handlePendingButton(
 
   const row = await getOpenPending(env.DB, parsed.token, nowSeconds());
   if (!row) {
-    return updateMessage(notice('This draft expired — run `/expense add` again.'));
+    return updateMessage(notice('This draft expired — run `/add` again.'));
   }
   if (row.invoker_id !== invoker.id) {
     return ephemeralNotice('This draft belongs to someone else.');
@@ -760,7 +750,7 @@ export async function handleSplitModalSubmit(
   const invoker = invokerOf(i);
   const now = nowSeconds();
   const row = await getOpenPending(env.DB, parsed.token, now);
-  if (!row) return updateMessage(notice('This draft was already used or expired — run `/expense add` again.'));
+  if (!row) return updateMessage(notice('This draft was already used or expired — run `/add` again.'));
   if (row.invoker_id !== invoker.id) return ephemeralNotice('This draft belongs to someone else.');
 
   const payload = JSON.parse(row.payload) as PendingPayload;
@@ -785,7 +775,7 @@ export async function handleSplitModalSubmit(
   let record = null;
   if (isEdit) {
     if (row.expense_id === null || row.base_revision === null) {
-      return updateMessage(notice('This draft is corrupted — run `/expense edit` again.'));
+      return updateMessage(notice('This draft is corrupted — tap Edit on the receipt again.'));
     }
     record = await getExpense(env.DB, row.expense_id);
     if (!record || record.deleted_at !== null) {

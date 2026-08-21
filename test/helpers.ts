@@ -116,12 +116,13 @@ export function slash(
 }
 
 export function autocompleteFor(name: string, sub: string, query: string, opts: Common = {}) {
+  const focused = { type: 3, name: 'id', value: query, focused: true };
   return {
     ...base(4, opts),
     data: {
       name,
       type: 1,
-      options: [{ type: 1, name: sub, options: [{ type: 3, name: 'id', value: query, focused: true }] }],
+      options: sub ? [{ type: 1, name: sub, options: [focused] }] : [focused],
     },
   };
 }

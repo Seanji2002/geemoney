@@ -90,7 +90,7 @@ export async function recordSettlement(
     if (alreadyPending) {
       return ephemeralNotice(
         `You already have a pending settlement of ${formatCents(alreadyPending.total_cents, currency)} to ${mention(creditorId)} — ` +
-          `ask them to tap ✓ on it (or remove it with \`/expense delete\`) before recording another. ` +
+          `ask them to tap ✓ on it (or remove it with \`/delete\`) before recording another. ` +
           `To add an extra payment anyway, use \`/settle\` with an explicit amount.`,
       );
     }

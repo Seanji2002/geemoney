@@ -12,11 +12,11 @@ in your group DM, a DM with a friend, or any server — it never joins a server 
 3. Friends who want to *type* commands install it the same way. Friends who don't can still
    see every receipt and tap every button, including confirming settlements.
 
-Start with `/expense add`, then `/help` any time you need a reminder.
+Start with `/add`, then `/help` any time you need a reminder.
 
 ## Features
 
-- **Record expenses in two slots and a click** — `/expense add amount: 30 description: ramen`
+- **Record expenses in two slots and a click** — `/add amount: 30 description: ramen`
   opens a picker pre-filled with the chat's roster; tap **Split equally** and you're done.
   Add `except: @cara` to leave someone out, or `with: @alice @bob` to name people yourself.
   Leave every slot empty for a pop-up form instead. Whoever paid is included automatically;
@@ -29,15 +29,14 @@ Start with `/expense add`, then `/help` any time you need a reminder.
 - **Split any way** — equally, exact amounts, percentages, or shares. Custom splits give you
   one box per person (leave one empty for the remainder); a `0` means that person owes
   nothing, and `payer_shares: False` means the payer only fronted the money.
-- **1-on-1 DM shorthand** — `/expense add amount: 20 description: ticket` records that you
+- **1-on-1 DM shorthand** — `/add amount: 20 description: ticket` records that you
   paid and the other person owes the full amount.
 - **Balances** — `/balance` shows who owes whom and suggested pay-backs (private by default,
   `share: True` to post it). `/balance with: @someone` for just the two of you.
 - **Settle up with one tap** — `/balance` shows a **Pay** button for each of your debts; tap it
   and the recipient confirms. (`/settle to: @someone [amount]` still works too.)
 - **Fix mistakes in place** — every receipt has **Edit** and **Undo** buttons; `/history`
-  browses everything, and `/expense edit` / `/expense delete` work too (with autocomplete).
-- **`/add`** is a shortcut for `/expense add`.
+  browses everything, and `/delete` removes an old expense (with autocomplete).
 - **Help** — `/help` for a quick guide in Discord.
 
 Everyone is identified by Discord user ID, amounts are exact to the cent, and each chat

@@ -6,7 +6,6 @@ import { formatCents } from '../../domain/money';
 import { searchExpenses } from '../../db/expenses';
 import { recentDescriptions } from '../../db/hints';
 import type { CommandOptionValue } from '../../discord/types';
-import { subcommandOf } from '../common';
 import { plainDate } from '../render';
 
 function focusedOption(options: CommandOptionValue[] | undefined): CommandOptionValue | undefined {
@@ -37,7 +36,7 @@ async function handleDescriptionAutocomplete(i: Interaction, env: Env, query: st
 }
 
 /**
- * Autocomplete for /expense edit|delete `id`. Choice names are plain text
+ * Autocomplete for /delete `id`. Choice names are plain text
  * (mentions don't render there) and stay name-free for payments — the app
  * stores no display names.
  */
@@ -45,9 +44,8 @@ async function handleExpenseAutocomplete(i: Interaction, env: Env): Promise<Resp
   if (i.context === InteractionContext.BotDM || !i.channel_id) {
     return autocomplete([{ name: '⚠ Run this in your group chat', value: '-' }]);
   }
-  const sub = subcommandOf(i);
-  const includePayments = sub?.name === 'delete';
-  const query = String(sub?.options.find((o) => o.focused)?.value ?? '');
+  const includePayments = i.data?.name === 'delete';
+  const query = String(focusedOption(i.data?.options)?.value ?? '');
   const rows = await searchExpenses(env.DB, i.channel_id, query, includePayments);
   const choices: AutocompleteChoice[] = rows.map((r) => {
     const amount = formatCents(r.total_cents, r.currency);
