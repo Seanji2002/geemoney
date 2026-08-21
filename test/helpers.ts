@@ -162,6 +162,20 @@ export function splitModalSubmit(customId: string, values: string, opts: Common 
   };
 }
 
+export function perPersonModalSubmit(customId: string, cells: string[], opts: Common = {}) {
+  return {
+    ...base(5, opts),
+    data: {
+      custom_id: customId,
+      components: cells.map((value, idx) => ({
+        type: 18,
+        component: { type: 4, custom_id: `v:${idx}`, value },
+      })),
+    },
+    message: { id: 'prompt-msg' },
+  };
+}
+
 export function click(customId: string, opts: Common = {}) {
   return {
     ...base(3, opts),

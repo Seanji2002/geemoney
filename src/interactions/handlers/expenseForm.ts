@@ -6,7 +6,7 @@ import { button, container, row, text } from '../../discord/components';
 import { channelMessage, followUpBody, modal, updateMessage } from '../../discord/responses';
 import { discordRest } from '../../discord/rest';
 import { formatCents, parseAmount } from '../../domain/money';
-import { buildShares, parseSplitValues, type ShareRow, type SplitMethod } from '../../domain/split';
+import { buildShares, composeValues, parseSplitValues, type ShareRow, type SplitMethod } from '../../domain/split';
 import { compareSnowflakes } from '../../domain/split';
 import {
   editExpense,
@@ -710,8 +710,20 @@ export async function handleSplitModalSubmit(
 
   const payload = JSON.parse(row.payload) as PendingPayload;
   const inputs = collectModalInputs(i.data?.components ?? []);
-  const raw = inputString(inputs, 'values');
   const currency = await ledgerCurrency(env, row.ledger_id);
+  let raw: string;
+  if (inputs.has('values')) {
+    raw = inputString(inputs, 'values');
+  } else {
+    // One box per person (<= 5 participants): compose the comma list.
+    const cells = payload.participants.map((_, idx) => inputString(inputs, `v:${idx}`));
+    const composed = composeValues(payload.method as SplitMethod, cells, payload.amountCents);
+    if (!composed.ok) {
+      await savePriorInput(env.DB, parsed.token, payload, cells.join(', '));
+      return updateMessage(pendingPrompt(parsed.token, payload, currency, composed.error));
+    }
+    raw = composed.raw;
+  }
 
   const isEdit = row.kind === 'expense_edit';
   let createdAt = now;

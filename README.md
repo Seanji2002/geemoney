@@ -24,8 +24,9 @@ Start with `/expense add`, then `/help` any time you need a reminder.
 - **Every receipt shows the new balances** — no need to ask who owes whom after each expense.
 - **A roster per chat** — `/roster` sets who "everyone" means; it also learns from the
   expenses you record.
-- **Split any way** — equally, exact amounts, percentages, or shares. A `0` means that
-  person owes nothing; `payer_shares: False` means the payer only fronted the money.
+- **Split any way** — equally, exact amounts, percentages, or shares. Custom splits give you
+  one box per person (leave one empty for the remainder); a `0` means that person owes
+  nothing, and `payer_shares: False` means the payer only fronted the money.
 - **1-on-1 DM shorthand** — `/expense add amount: 20 description: ticket` records that you
   paid and the other person owes the full amount.
 - **Balances** — `/balance` shows who owes whom and suggested pay-backs (private by default,

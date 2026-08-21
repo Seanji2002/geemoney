@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocate, buildShares, parseSplitValues } from '../../src/domain/split';
+import { allocate, buildShares, composeValues, parseSplitValues } from '../../src/domain/split';
 
 const users = (n: number): string[] =>
   Array.from({ length: n }, (_, i) => String(100000000000000000n + BigInt(i)));
@@ -162,5 +162,27 @@ describe('buildShares', () => {
 
   it('enforces the paid = owed = total invariant', () => {
     expect(() => buildShares(1000, a, [a, b], [500, 400])).toThrow(/invariant/);
+  });
+});
+
+describe('composeValues (one box per person)', () => {
+  it('joins filled boxes as-is', () => {
+    expect(composeValues('exact', ['12.50', '10.45', '8.25'], 3120)).toEqual({ ok: true, raw: '12.50, 10.45, 8.25' });
+  });
+
+  it('an empty box receives the remainder', () => {
+    expect(composeValues('exact', ['12.50', '', '8.25'], 3120)).toEqual({ ok: true, raw: '12.50, 10.45, 8.25' });
+    expect(composeValues('percent', ['50', '25', ''], 1000)).toEqual({ ok: true, raw: '50, 25, 25' });
+    expect(composeValues('percent', ['33.33', '', '33.33'], 1000)).toEqual({ ok: true, raw: '33.33, 33.34, 33.33' });
+  });
+
+  it('rejects two empty boxes and over-allocation', () => {
+    expect(composeValues('exact', ['', '', '8.25'], 3120).ok).toBe(false);
+    const over = composeValues('exact', ['30.00', '', '8.25'], 3120);
+    expect(!over.ok && over.error).toContain('exceed');
+  });
+
+  it('shares: empty means 0', () => {
+    expect(composeValues('shares', ['2', '', '1'], 900)).toEqual({ ok: true, raw: '2, 0, 1' });
   });
 });
