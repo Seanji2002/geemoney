@@ -33,3 +33,20 @@ Start with `/expense add`, then `/help` any time you need a reminder.
 
 Everyone is identified by Discord user ID, amounts are exact to the cent, and each chat
 keeps its own ledger.
+
+## How it works
+
+- **A Discord app, not a server bot.** geemoney is user-installable: each person adds it to
+  their own account, so it works in group DMs, direct messages, and servers without ever
+  being added as a member anywhere.
+- **Slash commands over HTTP.** Discord sends every command, button click, and form submit
+  as a signed HTTPS request to a Cloudflare Worker, which verifies the signature and replies
+  within a few milliseconds. There is no always-on process.
+- **A ledger per chat.** Expenses are stored in Cloudflare D1 (SQLite), keyed by the chat they
+  were recorded in. Every expense is a set of per-person rows — what each person paid and
+  what they owe — and all writes are atomic, so the books always balance to the cent.
+- **Balances are derived, never stored.** Who owes whom is computed from the expense rows on
+  demand. Settling up is just another expense that the recipient has to confirm.
+- **Shipped by CI.** Every change is typechecked and tested in GitHub Actions; merges to
+  `main` deploy to Cloudflare automatically — nothing deploys from a laptop.
+
