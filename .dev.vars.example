@@ -1,0 +1,7 @@
+# Copy to .dev.vars (dev app) and .prod.vars (prod app) — both are gitignored.
+# App ID and Public Key: Developer Portal → your app → General Information.
+# Bot token: Bot tab → Reset Token (used only by scripts/register.ts, never deployed).
+DISCORD_APP_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+DEFAULT_CURRENCY=USD

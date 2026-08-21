@@ -1,0 +1,32 @@
+{
+  "name": "geemoney",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bill splitting for friend groups as a user-installable Discord app on Cloudflare Workers + D1",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "node scripts/ci-only.mjs && wrangler deploy --env production",
+    "typecheck": "tsc --noEmit && tsc -p scripts --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate:local": "wrangler d1 migrations apply geemoney-db-dev --local",
+    "migrate:prod": "node scripts/ci-only.mjs && wrangler d1 migrations apply geemoney-db --remote --env production",
+    "register:dev": "tsx scripts/register.ts --vars .dev.vars",
+    "register:prod": "node scripts/ci-only.mjs && tsx scripts/register.ts",
+    "tunnel": "cloudflared tunnel --url http://localhost:8787"
+  },
+  "dependencies": {
+    "discord-interactions": "^4.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.21.3",
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.86.0"
+  }
+}

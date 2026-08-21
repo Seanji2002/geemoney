@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "geemoney-dev",
+  "main": "src/index.ts",
+  // Capped by the pinned wrangler 4.86 (last release supporting Node 20);
+  // bump this together with wrangler after upgrading Node to >= 22.
+  "compatibility_date": "2026-05-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "geemoney-db-dev",
+      // Replace with the id printed by: npx wrangler d1 create geemoney-db-dev
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // Dev Discord application (geemoney-dev). Public keys are public — plain vars, not secrets.
+    "DISCORD_APP_ID": "REPLACE_WITH_DEV_APP_ID",
+    "DISCORD_PUBLIC_KEY": "REPLACE_WITH_DEV_PUBLIC_KEY",
+    "DEFAULT_CURRENCY": "USD"
+  },
+  "env": {
+    "production": {
+      "name": "geemoney",
+      "observability": { "enabled": true },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "geemoney-db",
+          "database_id": "a8bb1766-d8a2-4094-a82e-ea17ec6a4bb9",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "vars": {
+        "DISCORD_APP_ID": "1538767713772511242",
+        "DISCORD_PUBLIC_KEY": "c90f2add397e97a218c79ab859b4fcf06c25ef41532909252540971a88f7a671",
+        "DEFAULT_CURRENCY": "USD"
+      }
+    }
+  }
+}
