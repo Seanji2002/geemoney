@@ -1,7 +1,10 @@
-import { container, separator, text } from '../discord/components';
+import { MAX_PARTICIPANTS } from '../config';
+import { button, container, messageUserSelect, row, separator, text } from '../discord/components';
+import { ButtonStyle } from '../discord/types';
 import { formatCents } from '../domain/money';
 import type { SettleSuggestion } from '../domain/balance';
 import type { ExpenseRecord, ShareRecord } from '../db/expenses';
+import { customIds } from './customId';
 
 export function mention(userId: string): string {
   return `<@${userId}>`;
@@ -48,6 +51,8 @@ export interface ReceiptData {
   actorId: string;
   timestamp: number;
   action: 'added' | 'edited';
+  /** Current pairwise state of the ledger after this change. */
+  balancesNow?: SettleSuggestion[];
 }
 
 export function receiptView(r: ReceiptData): unknown[] {
@@ -65,7 +70,70 @@ export function receiptView(r: ReceiptData): unknown[] {
     [oweLines, payerNote].filter(Boolean).join('\n'),
     `${r.action === 'added' ? 'Added' : '✏️ Edited'} by ${mention(r.actorId)} · ${dateStamp(r.timestamp)}`,
   ];
-  return [container([text(lines.join('\n'))])];
+  const children: unknown[] = [text(lines.join('\n'))];
+  if (r.balancesNow) {
+    const now =
+      r.balancesNow.length === 0
+        ? 'Now: everyone is settled up.'
+        : `Now: ${r.balancesNow
+            .slice(0, 6)
+            .map((s) => `${mention(s.from)} → ${mention(s.to)} ${formatCents(s.cents, r.currency)}`)
+            .join(' · ')}${r.balancesNow.length > 6 ? ' · …' : ''}`;
+    children.push(separator(), text(now));
+  }
+  return [container(children)];
+}
+
+export interface PickerData {
+  token: string;
+  amountCents: number;
+  description: string;
+  currency: string;
+  payerId: string;
+  selected: string[];
+  rosterEmpty: boolean;
+  error?: string;
+}
+
+/** Ephemeral participant picker: pre-filled user select + one-click split buttons. */
+export function pickerView(d: PickerData): unknown[] {
+  const who =
+    d.selected.length === 0
+      ? d.rosterEmpty
+        ? 'Pick who shares it — your choice becomes this chat’s roster for next time.'
+        : 'Pick who shares it.'
+      : `Sharing: ${d.selected.map(mention).join(' ')}${d.selected.includes(d.payerId) ? '' : ` (+ ${mention(d.payerId)} as payer)`}`;
+  const lines = [
+    `🧾  **${formatCents(d.amountCents, d.currency)} — ${d.description}** · paid by ${mention(d.payerId)}`,
+    who,
+    d.error ? `⚠️ ${d.error}` : 'Adjust the list if needed, then choose how to split.',
+  ];
+  return [
+    container([text(lines.join('\n'))]),
+    row(
+      messageUserSelect({
+        customId: customIds.pick(d.token, 'sel'),
+        minValues: 0,
+        maxValues: MAX_PARTICIPANTS,
+        placeholder: 'Who shares this cost?',
+        defaultUserIds: d.selected,
+      }),
+    ),
+    row(
+      button({ customId: customIds.pick(d.token, 'equal'), label: 'Split equally', style: ButtonStyle.Primary }),
+      button({ customId: customIds.pick(d.token, 'exact'), label: 'Exact amounts' }),
+      button({ customId: customIds.pick(d.token, 'percent'), label: 'Percentages' }),
+      button({ customId: customIds.pick(d.token, 'shares'), label: 'Shares' }),
+      button({ customId: customIds.pick(d.token, 'x'), label: 'Cancel' }),
+    ),
+  ];
+}
+
+export function rosterView(members: string[], saved: boolean): string {
+  const list = members.length === 0 ? 'Nobody yet.' : members.map(mention).join(' ');
+  return `${saved ? '✅ Roster saved' : '👥  **This chat’s roster**'}\n${list}\n${
+    saved ? '' : 'This is who `/expense add` splits with when you don’t say otherwise. Change it below.'
+  }`.trim();
 }
 
 export function deleteNoticeView(

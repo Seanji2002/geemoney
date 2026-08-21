@@ -3,8 +3,10 @@ import { channelMessage } from '../../discord/responses';
 
 const GUIDE = `📖  **geemoney — quick guide**
 
-**\`/expense add\`** — record a shared expense, two ways:
-• **Quick**: fill the slots — \`amount: 12.50\` \`description: Pizza\` \`with: @alice @bob\`. Whoever paid is **included in the split automatically** (payer defaults to you; override with \`paid_by\`). Optional: \`split\` + \`values\` for non-equal splits (comma-separated, @mention order, payer's value last if you didn't mention them), and \`payer_shares: False\` if the payer only fronted the money without partaking.
+**\`/expense add\`** — record a shared expense:
+• **Fastest**: \`amount: 12.50\` \`description: Pizza\` and press enter. A picker pops up pre-filled with this chat's roster — adjust if needed, then tap **Split equally** (or a custom split). Use \`except: @cara\` to leave someone out without touching the picker.
+• **Explicit**: add \`with: @alice @bob\` to name the people yourself. Whoever paid is **included automatically** (payer defaults to you; override with \`paid_by\`). Optional: \`split\` + \`values\` for non-equal splits (comma-separated, @mention order, payer's value last if you didn't mention them), and \`payer_shares: False\` if the payer only fronted the money.
+• **\`/roster\`** — view or change who “everyone” means in this chat (it learns from your expenses too).
 • **Someone owes nothing?** Give them a \`0\` in \`values\` (exact, percent, or shares) — e.g. \`20, 10, 0\` with your own value last means you covered the others.
 • **Form**: leave every slot empty and press enter — a pop-up form collects the same things with pickers.
 • **In a 1-on-1 DM** you can skip \`with\` entirely: \`/expense add amount: 20 description: ticket\` records that you paid and they owe the full amount. Add \`payer_shares: True\` to split it two ways instead.

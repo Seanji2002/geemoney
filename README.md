@@ -16,9 +16,14 @@ Start with `/expense add`, then `/help` any time you need a reminder.
 
 ## Features
 
-- **Record expenses** — `/expense add` with slots (`amount`, `description`, `with:` @mentions)
-  or leave the slots empty for a pop-up form. Whoever paid is included in the split
-  automatically; set `paid_by` if it wasn't you.
+- **Record expenses in two slots and a click** — `/expense add amount: 30 description: ramen`
+  opens a picker pre-filled with the chat's roster; tap **Split equally** and you're done.
+  Add `except: @cara` to leave someone out, or `with: @alice @bob` to name people yourself.
+  Leave every slot empty for a pop-up form instead. Whoever paid is included automatically;
+  set `paid_by` if it wasn't you.
+- **Every receipt shows the new balances** — no need to ask who owes whom after each expense.
+- **A roster per chat** — `/roster` sets who "everyone" means; it also learns from the
+  expenses you record.
 - **Split any way** — equally, exact amounts, percentages, or shares. A `0` means that
   person owes nothing; `payer_shares: False` means the payer only fronted the money.
 - **1-on-1 DM shorthand** — `/expense add amount: 20 description: ticket` records that you
