@@ -80,7 +80,33 @@ export function splitModalTitle(method: string, totalCents: number, currency: st
   return `${name} — total ${formatCents(totalCents, currency)}`.slice(0, 45);
 }
 
+/** Up to this many participants get one labeled input each (modal cap is 5). */
+export const PER_PERSON_MAX = 5;
+
 export function splitModalComponents(payload: PendingPayload, prefill?: string): unknown[] {
+  if (payload.participants.length <= PER_PERSON_MAX) {
+    const prior = (prefill ?? '').split(',').map((v) => v.trim());
+    const unitHint =
+      payload.method === 'exact'
+        ? 'Amount each. Leave one box empty and it gets the remainder.'
+        : payload.method === 'percent'
+          ? 'Percent each. Leave one box empty and it gets the remainder.'
+          : 'Number of shares each. Empty = 0.';
+    const placeholder = payload.method === 'exact' ? '12.50' : payload.method === 'percent' ? '50' : '2';
+    return payload.participants.map((participant, idx) =>
+      label(
+        participant.username.slice(0, 45),
+        textInput({
+          customId: `v:${idx}`,
+          required: false,
+          placeholder,
+          value: prior[idx] || undefined,
+          maxLength: 12,
+        }),
+        idx === 0 ? unitHint : undefined,
+      ),
+    );
+  }
   const order = payload.participants.map((p, idx) => `${idx + 1}. ${p.username}`).join('\n');
   const placeholder =
     payload.method === 'exact' ? '12.50, 10.45, 8.25' : payload.method === 'percent' ? '50, 25, 25' : '2, 1, 1';

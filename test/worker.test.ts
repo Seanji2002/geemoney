@@ -17,6 +17,7 @@ import {
   send,
   signedRequest,
   slash,
+  perPersonModalSubmit,
   splitModalSubmit,
   testKeys,
   textIn,
@@ -695,6 +696,36 @@ describe('/expense add picker (roster)', () => {
     expect(shares.reduce((a: number, s: any) => a + s.owed_cents, 0)).toBe(3000);
   });
 
+  it('custom split shows one labeled box per person; an empty box gets the remainder', async () => {
+    await recordDinner();
+    const picker = await send(twoSlots());
+    const token = selectIn(picker.body).custom_id.split(':')[1]!;
+    const modalRes = await send(click(`pk:${token}:exact`, { user: ALICE }));
+    const comps = modalRes.body.data.components;
+    expect(comps).toHaveLength(3);
+    expect(comps.map((c: any) => c.label).sort()).toEqual(['alice', 'bob', 'cara']);
+    expect(comps.map((c: any) => c.component.custom_id)).toEqual(['v:0', 'v:1', 'v:2']);
+
+    // Two filled, one empty → remainder; order matches the labels.
+    const order = comps.map((c: any) => c.label);
+    const cells = order.map((name: string) => (name === 'bob' ? '10.00' : name === 'cara' ? '5.00' : ''));
+    const done = await send(perPersonModalSubmit(`pnd:${token}:m2`, cells, { user: ALICE }));
+    expect(textIn(done.body.data.components)).toContain('Recorded');
+    const rows = await expenseRows();
+    const shares = await shareRows(rows[1].id);
+    expect(shares.find((s: any) => s.user_id === ALICE.id)!.owed_cents).toBe(1500);
+    expect(shares.find((s: any) => s.user_id === BOB.id)!.owed_cents).toBe(1000);
+    expect(shares.find((s: any) => s.user_id === CARA.id)!.owed_cents).toBe(500);
+
+    // Two empty boxes is an error that keeps the prompt open.
+    const picker2 = await send(twoSlots());
+    const token2 = selectIn(picker2.body).custom_id.split(':')[1]!;
+    await send(click(`pk:${token2}:exact`, { user: ALICE }));
+    const bad = await send(perPersonModalSubmit(`pnd:${token2}:m2`, ['', '', '5.00'], { user: ALICE }));
+    expect(textIn(bad.body.data.components)).toContain('at most one box empty');
+    expect(await expenseRows()).toHaveLength(2);
+  });
+
   it('a fresh chat shows an empty picker with a hint, and refuses to record nobody', async () => {
     const picker = await send(twoSlots());
     expect(textIn(picker.body.data.components)).toContain('roster');
@@ -836,9 +867,7 @@ describe('/expense edit', () => {
     const editToken = editGo.split(':')[1]!;
     const modalRes = await send(click(editGo, { user: ALICE }));
     const modalText = textIn(modalRes.body.data.components);
-    expect(modalText).toContain('1. cara');
-    expect(modalText).toContain('2. alice');
-    expect(modalText).toContain('3. bob');
+    expect(modalText).toMatch(/cara[\s\S]*alice[\s\S]*bob/); // original entry order, real names
     expect(modalText).not.toContain('user-');
     expect(customIdsIn(modalRes.body.data.components)).toBeDefined();
 

@@ -170,6 +170,57 @@ export function parseSplitValues(
   );
 }
 
+export type ComposeResult = { ok: true; raw: string } | { ok: false; error: string };
+
+/**
+ * Turns per-person modal boxes into the comma list parseSplitValues expects.
+ * Exact/percent: at most one empty box, which receives the remainder.
+ * Shares: an empty box means 0 shares.
+ */
+export function composeValues(method: SplitMethod, cells: string[], totalCents: number): ComposeResult {
+  const trimmed = cells.map((c) => c.trim());
+  if (method === 'shares') return { ok: true, raw: trimmed.map((c) => c || '0').join(', ') };
+
+  const emptyIdx = trimmed.map((c, i) => (c === '' ? i : -1)).filter((i) => i >= 0);
+  if (emptyIdx.length > 1) {
+    return { ok: false, error: 'Leave at most one box empty — that one gets the remainder.' };
+  }
+  if (emptyIdx.length === 0) return { ok: true, raw: trimmed.join(', ') };
+
+  let used = 0;
+  for (const [i, cell] of trimmed.entries()) {
+    if (i === emptyIdx[0]) continue;
+    if (method === 'exact') {
+      if (ZERO_RE.test(cell.replace(/^\$/, ''))) continue;
+      const parsed = parseAmount(cell);
+      if (!parsed.ok) return { ok: false, error: `"${cell}": ${parsed.error}` };
+      used += parsed.cents;
+    } else {
+      const cleaned = cell.replace(/%/g, '');
+      if (!/^\d{1,3}(\.\d{1,2})?$/.test(cleaned)) {
+        return { ok: false, error: `"${cell}" is not a valid percentage (up to 2 decimal places).` };
+      }
+      const [whole, frac = ''] = cleaned.split('.');
+      used += Number(whole) * 100 + Number(frac.padEnd(2, '0') || '0');
+    }
+  }
+  const budget = method === 'exact' ? totalCents : 10_000;
+  const remainder = budget - used;
+  if (remainder < 0) {
+    return {
+      ok: false,
+      error:
+        method === 'exact'
+          ? `The filled boxes already exceed the total by ${formatCents(-remainder, 'USD')}.`
+          : `The filled boxes already exceed 100% by ${(-remainder / 100).toFixed(2).replace(/\.?0+$/, '')}%.`,
+    };
+  }
+  const filled = [...trimmed];
+  filled[emptyIdx[0]!] =
+    method === 'exact' ? (remainder / 100).toFixed(2) : (remainder / 100).toFixed(2).replace(/\.?0+$/, '');
+  return { ok: true, raw: filled.join(', ') };
+}
+
 export interface ShareRow {
   userId: string;
   paidCents: number;
