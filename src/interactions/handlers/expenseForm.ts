@@ -47,6 +47,7 @@ import {
 import { customIds, type ParsedCustomId } from '../customId';
 import { expenseModalComponents, splitModalComponents, splitModalTitle } from '../forms';
 import { notice, pickerView, receiptView } from '../render';
+import { maybeShowTip } from './hints';
 
 // ---- Slash commands ----
 
@@ -561,6 +562,7 @@ export async function finalizeAdd(
 
   const balancesNow = await balancesAfterWrite(env, args.ledgerId);
   await seedRoster(env, i, args.ledgerId, args.form, args.splitInput, now);
+  ctx.waitUntil(maybeShowTip(i, env, args.ledgerId));
   const receipt = receiptView({
     balancesNow,
     id: outcome.expenseId,

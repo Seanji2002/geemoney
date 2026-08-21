@@ -22,6 +22,7 @@ const ADD_OPTIONS = [
         name: 'description',
         description: 'What was it for? e.g. Pizza night',
         required: false,
+        autocomplete: true,
       },
       {
         type: 3,
