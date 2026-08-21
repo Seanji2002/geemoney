@@ -48,6 +48,7 @@ import { customIds, type ParsedCustomId } from '../customId';
 import { expenseModalComponents, splitModalComponents, splitModalTitle } from '../forms';
 import { notice, pickerView, receiptView } from '../render';
 import { maybeShowTip } from './hints';
+import { parseExpenseText } from '../../domain/parseText';
 
 // ---- Slash commands ----
 
@@ -126,37 +127,16 @@ export async function handleExpenseAdd(
   } else if (withRaw === undefined) {
     // Group chat without `with`: open the picker, pre-filled from the roster,
     // so recording is "two slots + one click".
-    const roster = await getRoster(env.DB, ledgerId);
-    const defaults = roster.filter((m) => !exceptIds.includes(m.id) && m.id !== env.DISCORD_APP_ID);
     const valuesOpt = optionValue(options, 'values');
-    const payload: PendingPayload = {
+    return openPicker(i, env, {
       amountCents: amount.cents,
       description,
-      method: String(optionValue(options, 'split') ?? 'equal'),
       payerId,
-      participants: defaults.map((m) => ({ id: m.id, username: m.username })),
-      priorInput: valuesOpt === undefined ? undefined : String(valuesOpt),
       payerShares: payerSharesOpt !== false,
-    };
-    const token = await createPending(env.DB, {
-      kind: 'expense_add',
-      ledgerId,
-      invokerId: invoker.id,
-      payload,
-      now: nowSeconds(),
+      method: String(optionValue(options, 'split') ?? 'equal'),
+      priorInput: valuesOpt === undefined ? undefined : String(valuesOpt),
+      exceptIds,
     });
-    return channelMessage(
-      pickerView({
-        token,
-        amountCents: amount.cents,
-        description,
-        currency: await ledgerCurrency(env, ledgerId),
-        payerId,
-        selected: defaults.map((m) => m.id),
-        rosterEmpty: roster.length === 0,
-      }),
-      { ephemeral: true },
-    );
   } else {
     participantIds = mentionIds(String(withRaw)).filter((id) => !exceptIds.includes(id));
     if (participantIds.length === 0) {
@@ -261,6 +241,74 @@ export async function openEditModal(i: Interaction, env: Env, expenseId: number)
 }
 
 // ---- The expense form modal submit (add and edit) ----
+
+export interface PickerSeed {
+  amountCents: number;
+  description: string;
+  payerId: string;
+  payerShares: boolean;
+  method: string;
+  priorInput?: string;
+  exceptIds: string[];
+}
+
+/** Opens the ephemeral participant picker pre-filled from the chat's roster. */
+export async function openPicker(i: Interaction, env: Env, seed: PickerSeed): Promise<Response> {
+  const ledgerId = ledgerIdOf(i);
+  const roster = await getRoster(env.DB, ledgerId);
+  const defaults = roster.filter((m) => !seed.exceptIds.includes(m.id) && m.id !== env.DISCORD_APP_ID);
+  const payload: PendingPayload = {
+    amountCents: seed.amountCents,
+    description: seed.description,
+    method: seed.method,
+    payerId: seed.payerId,
+    participants: defaults.map((m) => ({ id: m.id, username: m.username })),
+    priorInput: seed.priorInput,
+    payerShares: seed.payerShares,
+  };
+  const token = await createPending(env.DB, {
+    kind: 'expense_add',
+    ledgerId,
+    invokerId: invokerOf(i).id,
+    payload,
+    now: nowSeconds(),
+  });
+  return channelMessage(
+    pickerView({
+      token,
+      amountCents: seed.amountCents,
+      description: seed.description,
+      currency: await ledgerCurrency(env, ledgerId),
+      payerId: seed.payerId,
+      selected: defaults.map((m) => m.id),
+      rosterEmpty: roster.length === 0,
+    }),
+    { ephemeral: true },
+  );
+}
+
+/** "Add as expense" on a message: parse "pizza 42.50" and open the picker with the author as payer. */
+export async function handleAddFromMessage(i: Interaction, env: Env): Promise<Response> {
+  const guard = rejectBotDm(i);
+  if (guard) return guard;
+  const target = i.data?.target_id ? i.data.resolved?.messages?.[i.data.target_id] : undefined;
+  if (!target) return ephemeralNotice("I couldn't read that message.");
+  const parsed = parseExpenseText(target.content ?? '');
+  if (!parsed) {
+    return ephemeralNotice(
+      "I couldn't find an amount in that message. Try `/add amount: … description: …` instead.",
+    );
+  }
+  const payerId = target.author?.bot ? invokerOf(i).id : (target.author?.id ?? invokerOf(i).id);
+  return openPicker(i, env, {
+    amountCents: parsed.amountCents,
+    description: parsed.description,
+    payerId,
+    payerShares: true,
+    method: 'equal',
+    exceptIds: [],
+  });
+}
 
 /** Parses `<@id>` / `<@!id>` mentions out of a free-text slot, deduplicated, in order. */
 function mentionIds(raw: string): string[] {

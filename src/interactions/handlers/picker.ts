@@ -60,6 +60,15 @@ export async function handlePickerComponent(
     return render();
   }
 
+  if (parsed.action === 'payer') {
+    const chosen = i.data?.values?.[0];
+    if (!chosen) return render();
+    if (botsAmong(i, [chosen]).length > 0) return render('Bots can’t pay for things — pick a person.');
+    payload.payerId = chosen;
+    await savePayload(env.DB, parsed.token, payload);
+    return render();
+  }
+
   // A split button: finalize the participant list (payer auto-included).
   const method = parsed.action as SplitMethod;
   let participantIds = payload.participants.map((p) => p.id);

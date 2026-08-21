@@ -185,6 +185,13 @@ export const commandDefinitions = [
     contexts: SHARED_CHATS_ONLY,
   },
   {
+    // Message context menu: right-click / long-press a message → Apps.
+    name: 'Add as expense',
+    type: 3,
+    integration_types: USER_INSTALL,
+    contexts: SHARED_CHATS_ONLY,
+  },
+  {
     name: 'help',
     type: 1,
     description: 'How to use geemoney — commands, splits, settling up',
