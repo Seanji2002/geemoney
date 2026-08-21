@@ -31,10 +31,11 @@ Start with `/expense add`, then `/help` any time you need a reminder.
   paid and the other person owes the full amount.
 - **Balances** — `/balance` shows who owes whom and suggested pay-backs (private by default,
   `share: True` to post it). `/balance with: @someone` for just the two of you.
-- **Settle up** — `/settle to: @someone [amount]` records a pay-back; it counts once the
-  recipient taps ✓ Confirm.
-- **History** — `/history` browses everything, newest first; `/expense edit` and
-  `/expense delete` fix mistakes (with autocomplete).
+- **Settle up with one tap** — `/balance` shows a **Pay** button for each of your debts; tap it
+  and the recipient confirms. (`/settle to: @someone [amount]` still works too.)
+- **Fix mistakes in place** — every receipt has **Edit** and **Undo** buttons; `/history`
+  browses everything, and `/expense edit` / `/expense delete` work too (with autocomplete).
+- **`/add`** is a shortcut for `/expense add`.
 - **Help** — `/help` for a quick guide in Discord.
 
 Everyone is identified by Discord user ID, amounts are exact to the cent, and each chat

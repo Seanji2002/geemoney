@@ -10,6 +10,63 @@ const USER_INSTALL = [1];
 const EVERYWHERE = [0, 1, 2];
 const SHARED_CHATS_ONLY = [0, 2];
 
+const ADD_OPTIONS = [
+      {
+        type: 3,
+        name: 'amount',
+        description: 'Total paid, like 12.50',
+        required: false,
+      },
+      {
+        type: 3,
+        name: 'description',
+        description: 'What was it for? e.g. Pizza night',
+        required: false,
+      },
+      {
+        type: 3,
+        name: 'with',
+        description: 'Who shares the cost — @mention them; leave empty to pick from this chat’s roster',
+        required: false,
+      },
+      {
+        type: 3,
+        name: 'except',
+        description: 'Leave these people out — @mention them, e.g. @cara',
+        required: false,
+      },
+      {
+        type: 6,
+        name: 'paid_by',
+        description: 'Who paid (default: you)',
+        required: false,
+      },
+      {
+        type: 3,
+        name: 'split',
+        description: 'How to split (default: equally)',
+        required: false,
+        choices: [
+          { name: 'Equally', value: 'equal' },
+          { name: 'Exact amounts', value: 'exact' },
+          { name: 'Percentages', value: 'percent' },
+          { name: 'Shares', value: 'shares' },
+        ],
+      },
+      {
+        type: 3,
+        name: 'values',
+        description: 'Values for exact/percent/shares, comma-separated: @mention order, payer last if not mentioned',
+        required: false,
+      },
+      {
+        type: 5,
+        name: 'payer_shares',
+        description: 'Set False if the payer is not splitting (paid for the others only)',
+        required: false,
+      },
+];
+
 export const commandDefinitions = [
   {
     name: 'expense',
@@ -22,62 +79,7 @@ export const commandDefinitions = [
         type: 1,
         name: 'add',
         description: 'Record a shared expense (fill the slots, or leave them empty for a form)',
-        options: [
-          {
-            type: 3,
-            name: 'amount',
-            description: 'Total paid, like 12.50',
-            required: false,
-          },
-          {
-            type: 3,
-            name: 'description',
-            description: 'What was it for? e.g. Pizza night',
-            required: false,
-          },
-          {
-            type: 3,
-            name: 'with',
-            description: 'Who shares the cost — @mention them; leave empty to pick from this chat’s roster',
-            required: false,
-          },
-          {
-            type: 3,
-            name: 'except',
-            description: 'Leave these people out — @mention them, e.g. @cara',
-            required: false,
-          },
-          {
-            type: 6,
-            name: 'paid_by',
-            description: 'Who paid (default: you)',
-            required: false,
-          },
-          {
-            type: 3,
-            name: 'split',
-            description: 'How to split (default: equally)',
-            required: false,
-            choices: [
-              { name: 'Equally', value: 'equal' },
-              { name: 'Exact amounts', value: 'exact' },
-              { name: 'Percentages', value: 'percent' },
-              { name: 'Shares', value: 'shares' },
-            ],
-          },
-          {
-            type: 3,
-            name: 'values',
-            description: 'Values for exact/percent/shares, comma-separated: @mention order, payer last if not mentioned',
-            required: false,
-          },
-          {
-            type: 5,
-            name: 'payer_shares',
-            description: 'Set False if the payer is not splitting (paid for the others only)',
-            required: false,
-          },
-        ],
+        options: ADD_OPTIONS,
       },
       {
         type: 1,
@@ -165,6 +167,14 @@ export const commandDefinitions = [
         required: false,
       },
     ],
+  },
+  {
+    name: 'add',
+    type: 1,
+    description: 'Shortcut for /expense add',
+    integration_types: USER_INSTALL,
+    contexts: SHARED_CHATS_ONLY,
+    options: ADD_OPTIONS,
   },
   {
     name: 'roster',

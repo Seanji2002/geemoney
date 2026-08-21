@@ -16,6 +16,8 @@ import {
   sharesForExpenses,
 } from '../../db/expenses';
 import { ephemeralNotice, ledgerCurrency, optionValue } from '../common';
+import { getRoster } from '../../db/roster';
+import type { PayButton } from '../render';
 import { balanceView, pairwiseDetailView } from '../render';
 
 export function groupByExpense(
@@ -64,6 +66,11 @@ export async function handleBalance(i: Interaction, env: Env): Promise<Response>
   const currency = await ledgerCurrency(env, ledgerId);
   const rows = await liveShareRows(env.DB, ledgerId);
   const expenses = groupByExpense(rows);
+  const names = new Map((await getRoster(env.DB, ledgerId)).map((m) => [m.id, m.username]));
+  const nameOf = (id: string): string => {
+    const n = names.get(id);
+    return n && !/^user-\d{4}$/.test(n) ? n : 'back';
+  };
 
   if (withId !== undefined) {
     const otherId = String(withId);
@@ -80,6 +87,10 @@ export async function handleBalance(i: Interaction, env: Env): Promise<Response>
         currency,
         netCents,
         recent: recentRecords.map((record) => ({ record, shares: shareMap.get(record.id) ?? [] })),
+        payButton:
+          netCents > 0
+            ? { fromId: invoker.id, toId: otherId, cents: netCents, toName: nameOf(otherId) }
+            : undefined,
       }),
       { ephemeral },
     );
@@ -88,8 +99,13 @@ export async function handleBalance(i: Interaction, env: Env): Promise<Response>
   const nets = [...computeNets(expenses).entries()].map(([userId, cents]) => ({ userId, cents }));
   const suggestions = settleSuggestions(computePairwise(expenses));
   const pendingCount = await pendingSettlements(env.DB, ledgerId);
+  // One-tap "Pay" buttons for the viewer's own debts (the handler re-checks
+  // the clicker, so sharing the message publicly is still safe).
+  const payButtons: PayButton[] = suggestions
+    .filter((s) => s.from === invoker.id)
+    .map((s) => ({ fromId: s.from, toId: s.to, cents: s.cents, toName: nameOf(s.to) }));
   return channelMessage(
-    balanceView({ title: 'Balances — this chat', currency, nets, suggestions, pendingCount }),
+    balanceView({ title: 'Balances — this chat', currency, nets, suggestions, pendingCount, payButtons }),
     { ephemeral },
   );
 }

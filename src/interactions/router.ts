@@ -17,7 +17,8 @@ import { handleHelp } from './handlers/help';
 import { handleHistory, handleHistoryButton } from './handlers/history';
 import { handlePickerComponent } from './handlers/picker';
 import { handleRoster, handleRosterSelect } from './handlers/roster';
-import { handleSettle, handleSettleButton } from './handlers/settle';
+import { handleReceiptButton } from './handlers/receipt';
+import { handleSettle, handleSettleButton, handleSettleShortcut } from './handlers/settle';
 
 export async function routeInteraction(
   i: Interaction,
@@ -47,6 +48,8 @@ async function routeCommand(i: Interaction, env: Env, ctx: ExecutionContext): Pr
       if (sub?.name === 'delete') return handleExpenseDelete(i, env, String(optionValue(sub.options, 'id') ?? ''));
       return ephemeralNotice('Unknown subcommand.');
     }
+    case 'add':
+      return handleExpenseAdd(i, env, ctx, i.data?.options ?? []);
     case 'balance':
       return handleBalance(i, env);
     case 'settle':
@@ -78,6 +81,10 @@ async function routeComponent(i: Interaction, env: Env, ctx: ExecutionContext): 
       return handlePickerComponent(i, env, ctx, parsed);
     case 'roster':
       return handleRosterSelect(i, env);
+    case 'settleButton':
+      return handleSettleShortcut(i, env, parsed);
+    case 'receipt':
+      return handleReceiptButton(i, env, parsed);
     default:
       return ephemeralNotice('This button is no longer supported.');
   }
