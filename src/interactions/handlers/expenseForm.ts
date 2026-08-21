@@ -236,6 +236,11 @@ export async function handleExpenseEdit(i: Interaction, env: Env, idRaw: string)
   if (!Number.isInteger(expenseId) || expenseId < 1) {
     return ephemeralNotice('Pick an expense from the suggestions.');
   }
+  return openEditModal(i, env, expenseId);
+}
+
+/** The prefilled edit modal — reached from /expense edit or a receipt's Edit button. */
+export async function openEditModal(i: Interaction, env: Env, expenseId: number): Promise<Response> {
   const record = await getExpense(env.DB, expenseId);
   if (!record || record.deleted_at !== null) return ephemeralNotice('That expense no longer exists.');
   if (record.ledger_id !== ledgerIdOf(i)) return ephemeralNotice('That expense belongs to a different chat.');

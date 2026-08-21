@@ -81,7 +81,13 @@ export function receiptView(r: ReceiptData): unknown[] {
             .join(' · ')}${r.balancesNow.length > 6 ? ' · …' : ''}`;
     children.push(separator(), text(now));
   }
-  return [container(children)];
+  return [
+    container(children),
+    row(
+      button({ customId: customIds.receipt(r.id, 'edit'), label: 'Edit' }),
+      button({ customId: customIds.receipt(r.id, 'undo'), label: 'Undo' }),
+    ),
+  ];
 }
 
 export interface PickerData {
@@ -165,12 +171,37 @@ export function deleteNoticeView(
   ];
 }
 
+export interface PayButton {
+  fromId: string;
+  toId: string;
+  cents: number;
+  /** Plain-text name for the button label (mentions don't render there). */
+  toName: string;
+}
+
+export function payButtonsRow(buttons: PayButton[], currency: string): unknown[] {
+  if (buttons.length === 0) return [];
+  return [
+    row(
+      ...buttons.slice(0, 5).map((b) =>
+        button({
+          customId: customIds.settleButton(b.fromId, b.toId, b.cents),
+          label: `Pay ${b.toName} ${formatCents(b.cents, currency)}`.slice(0, 80),
+          style: ButtonStyle.Success,
+        }),
+      ),
+    ),
+  ];
+}
+
 export interface BalanceViewData {
   title: string;
   currency: string;
   nets: { userId: string; cents: number }[];
   suggestions: SettleSuggestion[];
   pendingCount: number;
+  /** One-tap settle buttons for the viewer's own debts. */
+  payButtons?: PayButton[];
 }
 
 export function balanceView(b: BalanceViewData): unknown[] {
@@ -197,7 +228,7 @@ export function balanceView(b: BalanceViewData): unknown[] {
       text(`⏳ ${b.pendingCount} settlement${b.pendingCount === 1 ? '' : 's'} pending confirmation (not counted)`),
     );
   }
-  return [container(children)];
+  return [container(children), ...payButtonsRow(b.payButtons ?? [], b.currency)];
 }
 
 export interface PairwiseDetailData {
@@ -207,6 +238,7 @@ export interface PairwiseDetailData {
   /** Positive = invoker owes other; negative = other owes invoker. */
   netCents: number;
   recent: { record: ExpenseRecord; shares: ShareRecord[] }[];
+  payButton?: PayButton;
 }
 
 export function pairwiseDetailView(d: PairwiseDetailData): unknown[] {
@@ -221,7 +253,7 @@ export function pairwiseDetailView(d: PairwiseDetailData): unknown[] {
     const lines = d.recent.map(({ record, shares }) => historyLine(record, shares)).join('\n');
     children.push(separator(), text(`Recent between you:\n${lines}`));
   }
-  return [container(children)];
+  return [container(children), ...payButtonsRow(d.payButton ? [d.payButton] : [], d.currency)];
 }
 
 export function historyLine(e: ExpenseRecord, shares: ShareRecord[]): string {

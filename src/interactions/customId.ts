@@ -11,7 +11,9 @@ export type ParsedCustomId =
   | { op: 'settle'; expenseId: number; confirm: boolean }
   | { op: 'history'; page: number; withUser: string | null }
   | { op: 'pick'; token: string; action: PickAction }
-  | { op: 'roster' };
+  | { op: 'roster' }
+  | { op: 'settleButton'; fromId: string; toId: string; cents: number }
+  | { op: 'receipt'; expenseId: number; action: 'edit' | 'undo' };
 
 export type PickAction = 'sel' | 'equal' | 'exact' | 'percent' | 'shares' | 'x';
 const PICK_ACTIONS: PickAction[] = ['sel', 'equal', 'exact', 'percent', 'shares', 'x'];
@@ -35,6 +37,9 @@ export const customIds = {
     guard(`hst:${page}:${withUser ?? '-'}`),
   pick: (token: string, action: PickAction): string => guard(`pk:${token}:${action}`),
   roster: (): string => 'ro:set',
+  settleButton: (fromId: string, toId: string, cents: number): string =>
+    guard(`stb:${fromId}:${toId}:${cents}`),
+  receipt: (expenseId: number, action: 'edit' | 'undo'): string => guard(`rx:${expenseId}:${action}`),
 };
 
 export function parseCustomId(id: string): ParsedCustomId | null {
@@ -79,6 +84,22 @@ export function parseCustomId(id: string): ParsedCustomId | null {
     }
     case 'ro':
       return parts.length === 2 && parts[1] === 'set' ? { op: 'roster' } : null;
+    case 'stb': {
+      const [, fromId, toId, centsRaw] = parts;
+      const cents = Number(centsRaw);
+      if (parts.length === 4 && fromId && toId && Number.isInteger(cents) && cents > 0) {
+        return { op: 'settleButton', fromId, toId, cents };
+      }
+      return null;
+    }
+    case 'rx': {
+      const expenseId = Number(parts[1]);
+      const action = parts[2];
+      if (parts.length === 3 && Number.isInteger(expenseId) && (action === 'edit' || action === 'undo')) {
+        return { op: 'receipt', expenseId, action };
+      }
+      return null;
+    }
     case 'hst': {
       const page = Number(parts[1]);
       const withUser = parts[2];

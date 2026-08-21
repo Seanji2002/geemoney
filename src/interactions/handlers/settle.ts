@@ -36,11 +36,31 @@ export async function handleSettle(i: Interaction, env: Env): Promise<Response> 
   if (toId === invoker.id) return ephemeralNotice("You can't settle with yourself.");
   if (i.data?.resolved?.users?.[toId]?.bot) return ephemeralNotice("You can't settle with a bot.");
 
+  let cents: number | null = null;
+  if (amountRaw !== undefined) {
+    const parsed = parseAmount(String(amountRaw));
+    if (!parsed.ok) return ephemeralNotice(parsed.error);
+    cents = parsed.cents;
+  }
+  return recordSettlement(i, env, { debtorId: invoker.id, creditorId: toId, cents });
+}
+
+/**
+ * Records a pending settlement debtor → creditor and posts the public confirm
+ * prompt. `cents: null` means "everything currently owed". Shared by /settle
+ * and the Pay buttons on /balance.
+ */
+export async function recordSettlement(
+  i: Interaction,
+  env: Env,
+  args: { debtorId: string; creditorId: string; cents: number | null; capToDebt?: boolean },
+): Promise<Response> {
   const ledgerId = ledgerIdOf(i);
   const currency = await ledgerCurrency(env, ledgerId);
+  const { debtorId, creditorId } = args;
 
   const renderPrompt = (expenseId: number, cents: number, extra = ''): Response => {
-    const data: SettlePromptData = { expenseId, debtorId: invoker.id, creditorId: toId, cents, currency };
+    const data: SettlePromptData = { expenseId, debtorId, creditorId, cents, currency };
     return channelMessage([
       container([text(settlePromptText(data) + extra)]),
       row(
@@ -60,30 +80,28 @@ export async function handleSettle(i: Interaction, env: Env): Promise<Response> 
   }
 
   const rows = await liveShareRows(env.DB, ledgerId);
-  const debt = pairwiseDebt(groupByExpense(rows), invoker.id, toId);
+  const debt = pairwiseDebt(groupByExpense(rows), debtorId, creditorId);
 
   let cents: number;
-  if (amountRaw === undefined) {
+  if (args.cents === null || args.capToDebt) {
     // Don't stack a second full-amount settlement on top of an unconfirmed
     // one — both confirming would double-pay the debt.
-    const alreadyPending = await findPendingSettlement(env.DB, ledgerId, invoker.id, toId);
+    const alreadyPending = await findPendingSettlement(env.DB, ledgerId, debtorId, creditorId);
     if (alreadyPending) {
       return ephemeralNotice(
-        `You already have a pending settlement of ${formatCents(alreadyPending.total_cents, currency)} to ${mention(toId)} — ` +
+        `You already have a pending settlement of ${formatCents(alreadyPending.total_cents, currency)} to ${mention(creditorId)} — ` +
           `ask them to tap ✓ on it (or remove it with \`/expense delete\`) before recording another. ` +
-          `To add an extra payment anyway, pass an explicit amount.`,
+          `To add an extra payment anyway, use \`/settle\` with an explicit amount.`,
       );
     }
     if (debt <= 0) {
       return ephemeralNotice(
-        `You don't owe ${mention(toId)} anything right now. To record a payment anyway, pass an explicit amount.`,
+        `You don't owe ${mention(creditorId)} anything right now. To record a payment anyway, use \`/settle\` with an explicit amount.`,
       );
     }
-    cents = debt;
+    cents = args.cents === null ? debt : Math.min(args.cents, debt);
   } else {
-    const parsed = parseAmount(String(amountRaw));
-    if (!parsed.ok) return ephemeralNotice(parsed.error);
-    cents = parsed.cents;
+    cents = args.cents;
   }
 
   const now = nowSeconds();
@@ -96,11 +114,11 @@ export async function handleSettle(i: Interaction, env: Env): Promise<Response> 
     isPayment: true,
     splitMethod: 'payment',
     splitInput: null,
-    createdBy: invoker.id,
+    createdBy: invokerOf(i).id,
     createdAt: now,
     shares: [
-      { userId: invoker.id, paidCents: cents, owedCents: 0 },
-      { userId: toId, paidCents: 0, owedCents: cents },
+      { userId: debtorId, paidCents: cents, owedCents: 0 },
+      { userId: creditorId, paidCents: 0, owedCents: cents },
     ],
   });
   if (outcome.status !== 'ok') {
@@ -112,11 +130,29 @@ export async function handleSettle(i: Interaction, env: Env): Promise<Response> 
     return ephemeralNotice('Already recorded.');
   }
 
-  const overpay = amountRaw !== undefined && cents > debt;
+  const overpay = args.cents !== null && !args.capToDebt && cents > debt;
   const extra = overpay
     ? `\n(That's ${formatCents(cents - debt, currency)} beyond the current debt — the rest becomes credit.)`
     : '';
   return renderPrompt(outcome.expenseId, cents, extra);
+}
+
+/** "Pay X $y" button on /balance: only the debtor named in the button may use it. */
+export async function handleSettleShortcut(
+  i: Interaction,
+  env: Env,
+  parsed: Extract<ParsedCustomId, { op: 'settleButton' }>,
+): Promise<Response> {
+  const clicker = invokerOf(i);
+  if (clicker.id !== parsed.fromId) {
+    return ephemeralNotice(`That button is for ${mention(parsed.fromId)} — run \`/settle\` to record your own payment.`);
+  }
+  return recordSettlement(i, env, {
+    debtorId: parsed.fromId,
+    creditorId: parsed.toId,
+    cents: parsed.cents,
+    capToDebt: true,
+  });
 }
 
 export async function handleSettleButton(

@@ -11,13 +11,13 @@ const GUIDE = `📖  **geemoney — quick guide**
 • **Form**: leave every slot empty and press enter — a pop-up form collects the same things with pickers.
 • **In a 1-on-1 DM** you can skip \`with\` entirely: \`/expense add amount: 20 description: ticket\` records that you paid and they owe the full amount. Add \`payer_shares: True\` to split it two ways instead.
 
-**\`/balance\`** — who owes whom, plus suggested pay-backs. Only you see it unless you set \`share: True\`. Add \`with: @someone\` for just the two of you.
+**\`/balance\`** — who owes whom, plus suggested pay-backs — with a **Pay** button for each of your own debts (one tap records the payment; they confirm). Only you see it unless you set \`share: True\`. Add \`with: @someone\` for just the two of you.
 
 **\`/settle to: @someone\`** — record "I paid you back". Leave the amount empty to settle everything you owe them. It only counts after **they** tap ✓ Confirm on the prompt.
 
 **\`/history\`** — browse every expense, newest first. Filter with \`with: @someone\`.
 
-**\`/expense edit\` / \`/expense delete\`** — fix mistakes. Start typing a description or #id and pick from the suggestions. Deleting a settlement is how you undo one.`;
+**Fixing mistakes** — every receipt has **Edit** and **Undo** buttons. Or use \`/expense edit\` / \`/expense delete\` (start typing a description or #id and pick from the suggestions). Deleting a settlement is how you undo one.\n\n**\`/add\`** is a shortcut for \`/expense add\`.`;
 
 const TIPS = `**Tips**
 • Amounts are plain numbers like \`12.50\` (up to 2 decimals).

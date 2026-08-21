@@ -753,6 +753,74 @@ describe('/expense add picker (roster)', () => {
   });
 });
 
+describe('buttons over commands', () => {
+  it('/balance shows Pay buttons only for your own debts; one tap records a pending settlement', async () => {
+    await recordDinner(); // Bob and Cara each owe Alice $10
+
+    const asAlice = await send(slash('balance', { user: ALICE }));
+    expect(customIdsIn(asAlice.body.data.components).filter((c) => c.startsWith('stb:'))).toHaveLength(0);
+
+    const asBob = await send(slash('balance', { user: BOB }));
+    const payIds = customIdsIn(asBob.body.data.components).filter((c) => c.startsWith('stb:'));
+    expect(payIds).toEqual([`stb:${BOB.id}:${ALICE.id}:1000`]);
+    expect(textIn(asBob.body.data.components)).toContain('Pay alice $10.00');
+
+    // Someone else clicking Bob's button is refused.
+    const cara = await send(click(payIds[0]!, { user: CARA }));
+    expect(textIn(cara.body.data.components)).toContain('That button is for');
+    expect((await expenseRows()).filter((r: any) => r.is_payment === 1)).toHaveLength(0);
+
+    // Bob taps it: a public confirm prompt for Alice appears.
+    const paid = await send(click(payIds[0]!, { user: BOB }));
+    expect(paid.body.type).toBe(4);
+    expect(paid.body.data.flags & EPHEMERAL).toBe(0);
+    expect(customIdsIn(paid.body.data.components).some((c) => c.startsWith('stl:'))).toBe(true);
+    const settlement = (await expenseRows()).find((r: any) => r.is_payment === 1)!;
+    expect(settlement.total_cents).toBe(1000);
+    expect(settlement.payment_status).toBe('pending');
+
+    // A stale button (debt already pending) does not stack a second one.
+    const again = await send(click(payIds[0]!, { user: BOB }));
+    expect(textIn(again.body.data.components)).toContain('already have a pending settlement');
+  });
+
+  it('receipts carry Edit and Undo buttons that open the existing flows', async () => {
+    const id = await recordDinner();
+    const picker = await send(
+      slash('add', {
+        options: [
+          { type: 3, name: 'amount', value: '12.00' },
+          { type: 3, name: 'description', value: 'Coffee run' },
+        ],
+        user: BOB,
+      }),
+    );
+    // /add is the same flow as /expense add.
+    expect(customIdsIn(picker.body.data.components).some((c) => c.startsWith('pk:'))).toBe(true);
+
+    const edit = await send(click(`rx:${id}:edit`, { user: CARA }));
+    expect(edit.body.type).toBe(9);
+    expect(edit.body.data.custom_id).toBe(`mod:edit:${id}:1`);
+
+    const undo = await send(click(`rx:${id}:undo`, { user: CARA }));
+    expect(undo.body.data.flags & EPHEMERAL).toBe(EPHEMERAL);
+    expect(customIdsIn(undo.body.data.components)).toContain(`del:${id}:y`);
+  });
+
+  it('the receipt itself includes the action row', async () => {
+    const submit = expenseModalSubmit(
+      'mod:add',
+      { amount: '10.00', desc: 'Tea', participants: [ALICE.id, BOB.id], method: 'equal' },
+      { user: ALICE, resolved: resolvedUsers(ALICE, BOB) },
+    );
+    const res = await send(submit);
+    const [expense] = await expenseRows();
+    const ids = customIdsIn(res.body.data.components);
+    expect(ids).toContain(`rx:${expense.id}:edit`);
+    expect(ids).toContain(`rx:${expense.id}:undo`);
+  });
+});
+
 describe('/expense edit', () => {
   it('edits with optimistic locking; the stale editor loses cleanly', async () => {
     const id = await recordDinner();
